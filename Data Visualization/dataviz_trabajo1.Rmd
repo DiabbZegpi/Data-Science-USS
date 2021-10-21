@@ -1,0 +1,264 @@
+---
+title: "Trabajo 1 Data Visualization"
+author: "Diabb Zegpi D."
+output: 
+  bookdown::pdf_document2:
+    toc: false
+---
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(patchwork)
+theme_set(
+  theme_minimal() +
+    theme(panel.grid.minor.y = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          plot.title = element_text(hjust = .5))
+)
+```
+
+\renewcommand{\figurename}{Figura}
+\renewcommand{\tablename}{Tabla}
+
+1. Dependiendo del tipo de variable considerada en los conjuntos de datos, genere una representación visual adecuada y que sea representativa. Comente lo observado en la representación.
+
+```{r echo=FALSE}
+data(diamonds, package = "ggplot2")
+data(CPS85, package = "mosaicData")
+```
+
+```{r diamond-nums, echo=FALSE, fig.cap="Diamonds | Histogramas de variables numéricas"}
+diamonds %>% 
+  select(where(is.numeric)) %>% 
+  pivot_longer(cols = everything()) %>% 
+  ggplot(aes(value)) +
+  geom_histogram(bins = 12, color = "white", fill = "cyan4") +
+  facet_wrap("name", scales = "free") +
+  labs(x = NULL, y = "Frecuencia absoluta") 
+```
+
+La Figura \@ref(fig:diamond-nums) muestra la districuión de cada variable numérica en el conjunto de datos `diamonds`. Las observaciones destacables son las siguientes:
+
+- Las variables `carat`, `table`, `y` y `z` presentan asimetría positiva y curtosis elevada.
+- Tanto `depth` como `x` tienen distribuciones aparentemente simétricas.
+- `price` está en una escala varios órdenes superior al resto de variables. Además, presenta asimetría positiva y un gran coeficiente de variación.
+
+\newpage
+
+```{r diamond-fcts, echo=FALSE, fig.cap="Diamonds | Gráfico de barras de variables categóricas"}
+diamonds %>% 
+  mutate(across(!where(is.numeric), as.character)) %>% 
+  select(!where(is.numeric)) %>% 
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(value)) +
+  geom_bar(fill = "cyan4") +
+  facet_wrap("name", scales = "free", ncol = 3) +
+  labs(x = NULL, y = "Frecuencia absoluta") +
+  coord_flip()
+```
+
+La Figura \@ref(fig:diamond-fcts) muestra la frecuencia de las variables `clarify`, `color` y `cut`. Este gráfico deja en evidencia que la claridad más común es SI 1, mientras que la más rara es I1, que es la peor. Paralelamente, los colores siguen una distribución en torno a H, G y F, que son los colores de diamantes con calidad intermedia. De manera análoga, la mayoría de los cortes son intermedios, muy pocos son aceptables y muchos son premium y muy buenos.
+
+\newpage
+
+```{r cps85-nums, echo=FALSE, fig.cap="CPS85 | Diagramas de caja de variables numéricas", fig.width=5, fig.height=3.5}
+CPS85 %>% 
+  select(where(is.numeric)) %>% 
+  pivot_longer(cols = everything()) %>% 
+  ggplot(aes(value)) +
+  geom_boxplot(fill = "cyan4") +
+  facet_wrap("name") +
+  labs(x = "Valor") +
+  theme(axis.text.y = element_blank(),
+        panel.grid.major.y = element_blank())
+```
+
+Los gráficos de caja y bigote de la Figura \@ref(fig:cps85-nums) exponen que más de la mitad de las personas tiene más de 30 años, tiene menos de 12 años de educación, con 15 o menos años de experiencia y ganan menos que 8 dólares por hora. 
+
+Por otra parte, la Figura \@ref(fig:cps85-fcts) muestra la frecuencia de las variables categóricas del censo. Se obtiene que la mayoría de las personas encuestadas no son hispánicas, están casadas, son blancos, trabajan en diversos sectores, son hombres (aunque el 46% son mujeres), no viven en el sur y predomina el nivel `Not` del factor `union`.
+
+\newpage
+
+```{r cps85-fcts, echo=FALSE, fig.cap="CPS85 | Gráfico de barras de variables categóricas"}
+CPS85 %>% 
+  select(!where(is.numeric)) %>% 
+  pivot_longer(cols = everything()) %>%
+  ggplot(aes(value)) +
+  geom_bar(fill = "cyan4") +
+  facet_wrap("name", scales = "free", ncol = 3) +
+  labs(x = NULL, y = "Frecuencia absoluta") +
+  coord_flip()
+```
+
+2. Considerando la función `ggplot`, genere un gráfico de dispersión para las variables carat y price de la base diamonds, realice lo mismo con la base CPS85 exper y wage comente lo que se observa.
+
+a. De la figura creada anteriormente, genere un gráfico considerando aquellos registros con valores para la variable carat mayores o iguales a 4.
+
+b. Repita el gráfico utilizando una escala logarítmica para ambas variables. Comente lo observado.
+
+c. a las distintas figuras agregue un suavizamiento.
+
+El gráfico de la Figura \@ref(fig:scatter-1) (A) muestra una relación exponencial entre carat y price. El uso de la transformación logarítmica para uno o ambos ejes es recomendada. Por otra parte, la gran cantidad de datos hace necesaria la consideración de utilizar una muestra aleatoria o bien, graficar los puntos con transparencia. 
+
+Contrario a lo anterior, la Figura \@ref(fig:scatter-1) (B) no presenta exceso de datos ni se observa relación entre el número de años de experiencia laboral y el salario en USD. A modo de observación estética, la variable exper es discreta, lo que provoca solapamiento entre las observaciones. Agregar un poco de ruido a la gráfica puede convertirla en una visualización más atractiva.
+
+\newpage
+
+```{r scatter-1, echo=FALSE, fig.cap="Diamonds & CPS85 | Gráfico de dispersión", fig.width=7, fig.height=3}
+p1 <- ggplot(diamonds, aes(carat, price)) + 
+  geom_point(alpha = .2, color = "cyan4") +
+  labs(title = "Carat vs Price")
+
+p2 <- ggplot(CPS85, aes(exper, wage)) + 
+  geom_point(color = "cyan4", alpha = .6) +
+  labs(title = "Exper vs Wage")
+
+p1 + p2 + plot_annotation(tag_levels = "A")
+```
+
+Seleccionar solamente los diamante con `carat >= 4` deja observaciones con bajo rango de variación en ambas variables, price y carat. El resultado de aplicar escalas logarítmicas para ambos ejes y agregar una línea de regresión se observa en la Figura \@ref(fig:scatter-2): la nube de puntos se comporta linealmente y tiene baja varianza, la que además es homogénea. Estas características son positivas para el caso en que se desee modelar una relación lineal, mejorando la bondad del ajuste y disminuyendo el error estándar de los parámetros de la regresión.
+
+```{r scatter-2, echo=FALSE, warning=FALSE, fig.cap="Diamonds | Gráfico con transformación de escala", fig.width=7, fig.height=3}
+p3 <- ggplot(diamonds %>% filter(carat >= 4), aes(carat, price)) +
+  geom_point(color = "cyan4") +
+  geom_smooth(method = "lm", formula = "y ~ x",
+              color = "#0c2d60", se = TRUE) +
+  labs(title = "Sin transformación logarítmica")
+
+p4 <- ggplot(diamonds %>% filter(carat >= 4), aes(carat, price)) +
+  geom_point(color = "cyan4") +
+  scale_x_log10(name = "carat (log)") +
+  scale_y_log10(name = "price (log)") +
+  geom_smooth(method = "lm", formula = "y ~ x",
+              color = "#0c2d60", se = TRUE) +
+  annotate(geom = "text", x = 4.5, y = 2.1e4,
+           label = expression(log(hat(italic(price))) == hat(beta[0]) + hat(beta[1]) * log(italic(carat)))) +
+  labs(title = "Con transformación logarítmica")
+
+p3 + p4 + plot_annotation(tag_levels = "A")
+```
+
+\newpage
+
+3. Considerando la función ggplot genere, un gráfico de dispersión para las variables exper y wage de la base CPS85. Comente lo que se observa.
+
+a. De la figura creada anteriormente genere un gráfico considerando aquellos registros con valores para la variable wage menor a 40. Por que se realizo esto, analice y comente.
+
+b. Repita el gráfico, utilizando un color distinto dependiendo al sexo, comente lo observado.
+
+c. A las distintas figuras agregue un suavizamiento, (recordar que solo debe agregar dos capas al gráfico)
+
+```{r scatter-3, echo=FALSE, fig.cap="CPS85 | Exper vs Wage", fig.widht=7, fig.height=3}
+p5 <- ggplot(CPS85 %>% filter(wage < 40), aes(exper, wage)) +
+  geom_point(alpha = .6, color = "cyan4") +
+  geom_smooth(method = "loess", formula = "y ~ x", color = "#0c2d60")
+
+p6 <- ggplot(CPS85 %>% filter(wage < 40), aes(exper, wage, color = sex)) +
+  geom_point(alpha = .6) +
+  geom_smooth(method = "loess", formula = "y ~ x") +
+  scale_color_manual(values = c("F" = "salmon", "M" = "dodgerblue"))
+
+p5 + p6 + plot_annotation(tag_levels = "A")
+```
+
+Primero que todo, se estima que se consideraron valores para wage menores que 40 porque solamente hay un empleado con salario superior a 40 USD por hora, correspondiendo a un outlier.
+
+Ambos gráficos de la Figura \@ref(fig:scatter-3) (A y B) muestran cómo varía el salario por los años de experiencia del empleado. El panel A indica que los empleados tienden a ganar menos en las etapas tempranas y tardías de su vida laboral, mientras que su salario aumenta entre los 10 y 32 años de experiencia. Sin embargo, la línea de regresión local muestra mucha dispersión en torno al eje de las ordenadas, indicando que el modelo ajustado a los datos no es representativo del fenómeno real de estudio.
+
+El panel B muestra que los hombres tienden a ganar más que las mujeres, para un mismo nivel de experiencia.
+
+\newpage
+
+4. Usando la función simplificada qplot (acrónimo para quick plot, o gráfico rápido):
+
+a. Cree un gráfico para la variable price. Comente.
+
+b. Repita el gráfico fijando el parámetro binwidth como 100, ¿qué observa?
+
+c. Cree un gráfico de barras para la variable cut. Comente.
+
+d. ¿Qué observa respecto a la función qplot? Comentarios.
+
+```{r qplot-1, echo=FALSE, message=FALSE, fig.cap="Diamonds | Quick plot", fig.width=11, fig.height=4}
+p7 <- qplot(data = diamonds, price) + ggtitle("Quick plot")
+p8 <- qplot(data = diamonds, price, binwidth = 100) + ggtitle("Binwidth = 100")
+p9 <- qplot(data = diamonds, cut) + ggtitle("Bar plot")
+
+p7 + p8 + p9+ plot_annotation(tag_levels = "A")
+```
+
+La función `qplot()` aplicada a price (Figura \@ref(fig:qplot-1)) forma un histograma con ``bins = 30` clases; declarar el parámetro `binwidth = 100` ajusta el tamaño de las clases para ser iguales a 100, provocando un efecto de suavizamiento y aproximándose a una curva de densidad.
+
+Para el otro caso, qplot dibujó un gráfico de barras. En conclusión, se observa que la función `qplot()` hace gráficos predeterminados para el tipo y cantidad de variables que se le suministre. 
+
+5. Ahora bien, reúna todas las barras en una, pintando cada valor de cut de un color diferente.
+
+```{r plot-cut-1, echo=FALSE, fig.cap="Diamonds | Barra de tipos de Cut", fig.width=4, fig.height=2}
+diamonds %>% 
+  count(cut) %>% 
+  ggplot(aes(1, n, fill = cut)) + 
+  geom_col(position = "stack", width = .4) +
+  xlim(c(0.65, 1.75)) +
+  scale_fill_brewer(palette = "PuBuGn") +
+  labs(x = NULL) +
+  theme(legend.position = c(.85, .55),
+        panel.grid.major.x = element_blank(),
+        axis.text.x = element_blank())
+```
+
+\newpage
+
+6. Los gráficos de torta corresponden simplemente a la misma representación dibujada en coordenadas polares. Genere un grafico de torta para la variable cut.
+
+```{r plot-cut-2, echo=FALSE, fig.cap="Diamonds | Torta de tipos de Cut", fig.width=4, fig.height=2}
+diamonds %>% 
+  count(cut) %>% 
+  ggplot(aes(1, n, fill = cut)) + 
+  geom_col(position = "stack", width = 2, color = "white") +
+  xlim(c(0, 2)) +
+  scale_fill_brewer(palette = "PuBuGn") +
+  labs(x = NULL, fill = NULL) +
+  coord_polar("y") +
+  theme_void() +
+  theme(legend.position = "top")
+```
+
+7. Genere los gráficos de dispersión para cada nivel de cut, puede considerar usar la función facet_grid.
+
+```{r facet-plot-1, echo=FALSE, fig.cap="Diamonds | Gráfico de dispersión por Cut", fig.width=11, fig.height=5}
+ggplot(diamonds, aes(carat, price)) +
+  geom_point(alpha = .2, color = "cyan4") +
+  scale_x_log10(name = "carat (log)") +
+  scale_y_log10(name = "price (log)") + 
+  facet_wrap("cut")
+```
+
+8. Genere un gráfico de dispersión para las variables caret y price, para todos aquellos registros con caret mayor o igual a 3, definiendo por color mediante la variable clarity y el tamaño con la variable cut. Comente.
+
+\newpage
+
+```{r facet-plot-2, echo=FALSE, fig.cap="Diamonds | Gráfico de dispersión por Clarity y Cut", fig.width=5.5, fig.height=3}
+diamonds %>% 
+  filter(carat >=3) %>% 
+  ggplot(aes(carat, price, color = clarity, size = cut)) +
+  geom_point(alpha = .6) +
+  scale_color_brewer(palette = "Dark2") +
+  scale_x_log10(name = "carat (log)") +
+  scale_y_log10(name = "price (log)") 
+```
+
+De acuerdo con la Figura \@ref(fig:facet-plot-2), los diamantes con claridad SI2 son los más caros, mientras que el precio de los diamantes categoría I1 varía con gran amplitud. Además, para `carat >= 3`, la calidad del corte suele ser Very Good, Premium o Ideal.
+
+9. Genere los gráficos de dispersión para exper y wage, dependiendo del sexo utilizando la función facet_grid para su sector laboral.
+
+```{r facet-plot-3, echo=FALSE, fig.cap="CPS85 | Gráfico de dispersión por Sex y Sector", fig.width=7, fig.height=3}
+ggplot(CPS85, aes(exper, wage)) +
+  geom_point(alpha = .6, color = "cyan4") +
+  facet_grid(vars(sex), vars(sector), scales = "free_y")
+```
+
+
+
+
+
+

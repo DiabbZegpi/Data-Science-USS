@@ -1,0 +1,168 @@
+---
+title: "Taller 1 de Machine Learning Avanzado"
+author: 
+  - Araneda F., Marcela
+  - Reyes G., Álvaro
+  - Sepúlveda M., Danilo
+  - Zegpi D., Diabb
+output: 
+  html_document:
+    theme: united
+    highlight: kate
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<style>
+
+  .sourceCode {
+    font-family: 'Fira Mono';
+  }
+
+</style>
+
+```{r packages, echo=TRUE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(tidymodels)
+```
+
+En el presente trabajo, se completan las tareas propuestas en el "Taller 1: Aprendizaje Supervisado - Árboles de decisión", del profesor Nicolás Abuhadba.
+
+## 1. Dataset de compras
+
+```{r compras}
+formas <- tribble(
+  ~Color, ~Forma, ~`Tamaño`, ~Compra,
+  "Rojo", "Cuadrado", "Grande", "Si",
+  "Azul", "Cuadrado", "Grande", "Si",
+  "Rojo", "Redondo", "Pequeño", "No",
+  "Verde", "Cuadrado", "Pequeño", "No",
+  "Rojo", "Redondo", "Grande", "Si",
+  "Verde", "Cuadrado", "Grande", "No"
+)
+
+formas$Compra <- factor(formas$Compra)
+```
+
+### Árbol de decisión: Compra
+
+```{r arbol1}
+formas_tree <- 
+  decision_tree(min_n = 2) %>% 
+  set_mode("classification") %>% 
+  set_engine("rpart", parms = list(split = "information")) %>% 
+  fit(data = formas, formula = Compra ~ .)
+```
+
+```{r echo=FALSE}
+rpart.plot::rpart.plot(
+  formas_tree$fit, 
+  type = 1, 
+  roundint = FALSE, 
+  main = "Árbol de Clasificación: Compra?"
+)
+```
+
+```{r}
+formas %>% 
+  bind_cols(predict(formas_tree, new_data = .)) %>% 
+  conf_mat(truth = Compra, .pred_class)
+```
+
+### Random Forest: Compra
+
+```{r forest1}
+formas_forest <- 
+  rand_forest(trees = 5000, min_n = 2) %>% 
+  set_mode("classification") %>% 
+  set_engine("ranger") %>% 
+  fit(data = formas, formula = Compra ~ .)
+
+formas %>% 
+  bind_cols(predict(formas_forest, new_data = .)) %>% 
+  conf_mat(truth = Compra, .pred_class)
+```
+
+## 2. Dataset de tenis
+
+```{r tennis}
+tennis <- tribble(
+  ~Day, ~Outlook, ~Temperature, ~Humidity, ~Wind, ~PlayTennis,
+  1, "Sunny", "Hot", "High", "Weak", "No",
+  2, "Sunny", "Hot", "High", "Strong", "No",
+  3, "Overcast", "Hot", "High", "Weak", "Yes",
+  4, "Rain", "Mild", "High", "Weak", "Yes",
+  5, "Rain", "Cool", "Normal", "Weak", "Yes",
+  6, "Rain", "Cool", "Normal", "Strong", "No",
+  7, "Overcast", "Cool", "Normal", "Strong", "Yes",
+  8, "Sunny", "Mild", "High", "Weak", "No",
+  9, "Sunny", "Cool", "Normal", "Weak", "Yes",
+  10, "Rain", "Mild", "Normal", "Weak", "Yes",
+  11, "Sunny", "Mild", "Normal", "Strong", "Yes",
+  12, "Overcast", "Mild", "High", "Strong", "Yes",
+  13, "Overcast", "Hot", "Normal", "Weak", "Yes",
+  14, "Rain", "Mild", "High", "Strong", "No"
+)
+
+tennis$PlayTennis <- factor(tennis$PlayTennis)
+```
+
+### Árbol de decisión: PlayTennis
+
+```{r arbol2}
+tennis_tree <- 
+  decision_tree(min_n = 4) %>% 
+  set_mode("classification") %>% 
+  set_engine("rpart", parms = list(split = "information")) %>% 
+  fit(data = tennis[, -1], formula = PlayTennis ~ .)
+```
+
+```{r echo=FALSE}
+rpart.plot::rpart.plot(
+  tennis_tree$fit, 
+  type = 1, 
+  roundint = FALSE, 
+  main = "Árbol de Clasificación: Play Tennis?"
+)
+```
+
+```{r}
+tennis %>% 
+  bind_cols(predict(tennis_tree, new_data = .)) %>% 
+  conf_mat(truth = PlayTennis, .pred_class)
+```
+
+### Random Forest: PlayTennis
+
+```{r forest2}
+tennis_forest <- 
+  rand_forest(trees = 5000, min_n = 4) %>% 
+  set_mode("classification") %>% 
+  set_engine("ranger") %>% 
+  fit(data = tennis, formula = PlayTennis ~ .)
+
+tennis %>% 
+  bind_cols(predict(tennis_forest, new_data = .)) %>% 
+  conf_mat(truth = PlayTennis, .pred_class)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

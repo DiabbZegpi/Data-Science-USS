@@ -1,0 +1,269 @@
+---
+title: "Taller 2 de Machine Learning Avanzado"
+author: "Zegpi D., Diabb"
+output: 
+  html_document:
+    theme: united
+    highlight: kate
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+ragg_png = function(..., res = 500) {
+  ragg::agg_png(..., res = res, units = "in")
+}
+
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  class.output = "purple-output",
+  dev = "ragg_png", 
+  fig.align = "center"
+)
+```
+
+<style>
+  body {
+    font-size: 16px;
+    background-color: #fff9fa;
+  }
+  
+  pre {
+    border: 0px;
+  }
+
+  .sourceCode, code {
+    font-family: 'Fira Mono';
+  }
+  
+  code {
+    background-color: #e5eeeb;
+    color: #111;
+  }
+  
+  pre.sourceCode {
+    color: #111;
+    font-weight: 500;
+    background-color: #e5eeeb;
+  }
+  
+  code span.fu {
+    color: #0e4747;
+    font-weight: 600;
+  }
+  
+  code span.sc {
+    color: #ae4d00;
+    font-weight: 600;
+  }
+  
+  code span.st {
+    color: #ae4d00;
+  }
+  
+  .purple-output{
+    background-color: #012626;
+    color: #eee;
+  }
+</style>
+
+
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(tidymodels)
+titanic_train <- read_csv("train.csv")
+titanic_test <- read_csv("test.csv")
+```
+
+```{r echo=FALSE}
+theme_set(theme_light(base_family = "Segoe UI", base_size = 16))
+theme_update(
+  plot.background = element_rect(fill = "#fff9fa", color = "transparent"),
+  panel.background = element_rect(fill = "#eeeeee"),
+  text = element_text(color = "#111111"),
+  plot.title = element_text(hjust = .5)
+)
+```
+
+Primero que todo, se necesita saber cuáles campos tiene `titanic_train` que `titanic_test` no contenga, con el objetivo de evitar *data leakage*.
+
+```{r}
+colnames(titanic_train[!colnames(titanic_train) %in% colnames(titanic_test)])
+```
+
+La única columna que no se encuentra en el conjunto de prueba es `Survived`. Posteriormente, se examina el dataset de entrenamiento en búsqueda de valores faltantes.
+
+```{r}
+titanic_train %>% 
+  summarise(across(everything(), ~sum(is.na(.)))) %>% 
+  pivot_longer(cols = everything(), names_to = "Campo", values_to = "NAs") %>% 
+  mutate("% de NAs" = round(100 * NAs / nrow(titanic_train), 2)) %>% 
+  print(n = Inf)
+```
+
+De acuerdo al resultado anterior, es necesario tratar con las columnas `Age`, `Cabin` y `Embarked`.
+
+### Tratamiento de valores faltantes
+
+Para el caso de la variable `Embarked` se imputará por la moda, debido a que el 72% de los pasajeros abordaron en Southampton.
+
+El gran porcentaje de valores faltantes de la columna `Cabin` (77%) le convierte en un candidato a eliminar del dataset. Sin embargo, ha de investigarse si estos valores faltantes se condicen con algún patrón relacionado con la variable dependiente `Survived` u otras variables. En otras palabras, ha de investigarse si los registros en cuestión pertenecen a la categoría MAR, MNAR o MCAR.  
+
+```{r}
+cabin_data <- 
+  titanic_train %>% 
+  mutate("Has cabin" = ifelse(is.na(Cabin), "no", "yes")) %>% 
+  select(Survived, "Has cabin")
+
+table(cabin_data)
+```
+
+Aparentemente, existe una relación entre la variable objetivo y si el pasajero/a registra o no el número de cabina. Para contrastar si esta relación existe y en caso que existiere, medir su fuerza relativa, se conduce una prueba de *chi cuadrado* y se calcula el *coeficiente de phi*, respectivamente. La hipótesis nula $H_0$ propone que ambas variables, `Survived` y `Has Cabin` son indepentientes; la hipótesis alternativa $H_A$ propone que existe dependencia entre ambas variables.
+
+```{r}
+cabin_data %>% {chisq.test(.$Survived, .$"Has cabin")}
+```
+
+Con un nivel de significancia del 5% se rechaza la hipótesis nula, concluyendo que se observa evidencia suficiente de dependencia entre las variables contrastadas. A continuación, se calcula el coeficiente de phi de la forma
+
+$$\phi = \sqrt{\frac{\chi^2}{n}} \hspace{1cm} 0 \leq \phi \leq 1,$$
+
+donde $\chi^2$ es el estadístico de la prueba chi cuadrado y $n$ es la cantidad de observaciones (pasajeros). El coeficiente estimado es de `r cabin_data %>% {chisq.test(.$Survived, .$"Has cabin")} %>% {.$statistic / nrow(cabin_data)} %>% sqrt() %>% round(2)`, lo que indica una relación entre débil y moderada, sugiriendo que existe poder predictivo en la variable `Has cabin` para predecir si un pasajero sobrevivió a la tragedia. En otras palabras, los datos faltantes corresponden a la categoría de MAR (*Missing At Random*) y es conveniente conservarlos en el dataset.
+
+Antes de decidir un método para la imputación de la columna `Age`, es adecuado observar la distribución de las edades de los pasajeros.
+
+```{r echo=FALSE}
+titanic_train %>% 
+  ggplot(aes(Age)) +
+  geom_histogram(na.rm = TRUE, bins = 25, alpha = .8, fill = "#012626") +
+  labs(x = "Age", y = "Frecuencia absoluta", 
+       title = "Histograma de Age") +
+  stat_bin(geom = "text", aes(label = ..count.., y = ..count.. + 3), bins = 25, na.rm = T)
+```
+
+En apariencia, la distribución de edad de los pasajeros es bimodal, con grupos bien definidos de población de menores y de adultos. El primer grupo etáreo alcanzaría el 19% de los pasajeros. Por supuesto, esto correlaciona con la distribución de títulos de los pasajeros: 
+
+```{r}
+extract_title <- function(x) stringr::str_remove(str_extract(x, "Mr\\.? |Mrs\\.?|Miss\\.?|Master\\.?"), "\\.")
+
+titanic_train %>% 
+  mutate(Title = create_title(Name)) %>% 
+  group_by(Title) %>% 
+  summarize(across(Age, list("Min Age" = min, "Max Age" = max), na.rm = TRUE, .names = "{.fn}"))
+```
+
+Los grupos con títulos masculinos están bien caracterizados, y una estimación de la edad por la media del grupo sería más adecuada que estimar por la media de la muestra completa. Sin embargo, los títulos femeninos presentan solapamiento.
+
+```{r echo=FALSE}
+library(ggtext)
+miss_mrs <- tibble(label = "La distribución de la edad de las pasajeras<br>del Titanic es mixta y se compone de los<br>subgrupos <b style='color:#592759;'>Miss.</b> y <b style='color:#354f79;'>Mrs.</b>",
+                   x = 47, y = 22)
+
+titanic_train %>% 
+  mutate(Title = extract_title(Name)) %>% 
+  filter(Sex == "female" & Title != "Other") %>% 
+  ggplot(aes(Age, fill = Title)) +
+  geom_histogram(bins = 15, position = "identity", na.rm = TRUE, alpha = .8, show.legend = FALSE) +
+  geom_richtext(data = miss_mrs, inherit.aes = FALSE, 
+                fill = NA, label.color = NA, size = 4.5, family = "Noto Sans", fontface = "italic",
+                aes(x = x, y = y, label = label)) +
+  scale_fill_manual(values = c("#592759", "#354f79")) +
+  labs(title = "Distribución de la edad de las pasajeras por título",
+       x = "Age", y = "Frecuencia absoluta")
+```
+
+Se observa que pese al traslape de las distribuciones, la edad sí puede ser caracterizada por el título de la pasajera, Finalmente, los valores faltantes de edad serán imputados con el algortimo *KNN* y utilizando la *distancia de Gower*, cuyos predictores serán las variables `Title`, `Sex`, `SibSp` y `Parch`.
+
+### Imputación de los valores faltantes
+
+Para culminar el tratamiento de los datos faltantes, las transformaciones e imputaciones se llevarán a cabo utilizando el framework de machine learning `tidymodels`, porque facilita la incorporación de las etapas de procesamiento de datos en el flujo de trabajo de data science. 
+
+El primer paso es crear un objeto de *receta* que contendrá todas las etapas del procesamiento deseadas. Esta receta se usará posteriormente para crear el dataset al que se ajustará un modelo de *random forests*, por ésto el nombre de `rf_recipe`. Después, se incorporan la imputación por la moda de `Embarked`, la transformación de la columna `Cabin`, la creación de la columna `Title` y la imputación con KNN de la columna `Age`. Luego, se actualizan los roles de las columnas, con el fin de prevenir el uso de las columnas `PassengerId` y `Name` en la predicción. 
+
+
+```{r}
+rf_recipe <- 
+  recipe(Survived ~ ., data = titanic_train) %>% 
+  step_impute_mode(Embarked) %>% 
+  step_mutate(Cabin = if_else(is.na(Cabin), "Yes", "No"),
+              Title = if_else(is.na(extract_title(Name)), "Other", extract_title(Name))) %>% 
+  step_impute_knn(Age, impute_with = c("Title", "Sex", "SibSp", "Parch")) %>% 
+  update_role(PassengerId, Name, new_role = "id")
+```
+
+### Resampling y Ajuste de hiperparámetros
+
+Debido a que el dataset es pequeño como para crear un conjunto de validación que sirva para la estimación del desempeño del modelo, se utilizará el método de *10-fold cross validation*.
+
+```{r}
+set.seed(123)
+titanic_folds <- vfold_cv(titanic_train, v = 10)
+```
+
+Los errores de entrenamiento y validación serán calculados para cada uno de los subconjuntos en `titanic_folds`, estimando el error de validación como la media de los 10 errores de validación parciales.
+
+Paralelamente, se declara la especificación del modelo de ranfom forests utilizando engine del paquete `ranger`, en *modo clasificación*. Los hiperparámetros a afinar se deifnen a continuación:
+
+- **mtry**: un entero para el número de predictores que son muestreados aleatoriamente en cada separación al crear lo modelos de árbol.
+
+- **min_n**: un entero para el número mínimo de puntos necesarios en un nodo para que pueda seguir dividiéndose.
+
+- **trees**: un entero para el número de árboles contenidos en el ensamblaje.
+
+```{r}
+rf_spec <- 
+  rand_forest(
+    mtry = tune(),
+    min_n = tune(),
+    trees = tune()
+  ) %>% 
+  set_mode("classification") %>% 
+  set_engine("ranger")
+```
+
+Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el parámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas.
+
+```{r}
+rf_grid <- 
+  grid_max_entropy(
+    rf_spec %>% 
+      parameters() %>% 
+      update(mtry = range_set(mtry(), c(1, 11))),
+    size = 20
+  )
+```
+
+Una vez se tienen los componentes más importantes del framework de tidymodels (recipe, model specification, data resampling & tunning grid), se procede a crear un workflow que los haga interactuar.
+
+```{r}
+rf_wf <- 
+  workflow() %>% 
+  add_recipe(rf_recipe) %>% 
+  add_model(rf_spec)
+```
+
+```{r}
+doParallel::registerDoParallel()
+rf_res <- 
+  tune_grid(
+    rf_wf,
+    resamples = titanic_folds,
+    grid = rf_grid,
+    control = control_resamples(save_pred = TRUE)
+  )
+```
+
+
+```{r}
+rf_recipe %>% prep() %>% bake(NULL)
+```
+
+```{r}
+tidy(rf_recipe)
+```
+
+
+
+
+
+
