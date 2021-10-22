@@ -6,7 +6,7 @@ output:
     theme: united
     highlight: kate
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -112,23 +112,23 @@ El gran porcentaje de valores faltantes de la columna `Cabin` (77%) le convierte
 ```{r}
 cabin_data <- 
   titanic_train %>% 
-  mutate("Has cabin" = ifelse(is.na(Cabin), "no", "yes")) %>% 
-  select(Survived, "Has cabin")
+  mutate(Cabin = ifelse(is.na(Cabin), "no", "yes")) %>% 
+  select(Survived, Cabin)
 
 table(cabin_data)
 ```
 
-Aparentemente, existe una relación entre la variable objetivo y si el pasajero/a registra o no el número de cabina. Para contrastar si esta relación existe y en caso que existiere, medir su fuerza relativa, se conduce una prueba de *chi cuadrado* y se calcula el *coeficiente de phi*, respectivamente. La hipótesis nula $H_0$ propone que ambas variables, `Survived` y `Has Cabin` son indepentientes; la hipótesis alternativa $H_A$ propone que existe dependencia entre ambas variables.
+Aparentemente, existe una relación entre la variable objetivo y si el pasajero/a registra o no el número de cabina. Para contrastar si esta relación existe y en caso que existiere, medir su fuerza relativa, se conduce una prueba de *chi cuadrado* y se calcula el *coeficiente de phi*, respectivamente. La hipótesis nula $H_0$ propone que ambas variables, `Survived` y `Cabin` son independientes; la hipótesis alternativa $H_A$ propone que existe dependencia entre ambas variables.
 
 ```{r}
-cabin_data %>% {chisq.test(.$Survived, .$"Has cabin")}
+cabin_data %>% {chisq.test(.$Survived, .$Cabin)}
 ```
 
 Con un nivel de significancia del 5% se rechaza la hipótesis nula, concluyendo que se observa evidencia suficiente de dependencia entre las variables contrastadas. A continuación, se calcula el coeficiente de phi de la forma
 
 $$\phi = \sqrt{\frac{\chi^2}{n}} \hspace{1cm} 0 \leq \phi \leq 1,$$
 
-donde $\chi^2$ es el estadístico de la prueba chi cuadrado y $n$ es la cantidad de observaciones (pasajeros). El coeficiente estimado es de `r cabin_data %>% {chisq.test(.$Survived, .$"Has cabin")} %>% {.$statistic / nrow(cabin_data)} %>% sqrt() %>% round(2)`, lo que indica una relación entre débil y moderada, sugiriendo que existe poder predictivo en la variable `Has cabin` para predecir si un pasajero sobrevivió a la tragedia. En otras palabras, los datos faltantes corresponden a la categoría de MAR (*Missing At Random*) y es conveniente conservarlos en el dataset.
+donde $\chi^2$ es el estadístico de la prueba chi cuadrado y $n$ es la cantidad de observaciones (pasajeros). El coeficiente estimado es de `r cabin_data %>% {chisq.test(.$Survived, .$"Has cabin")} %>% {.$statistic / nrow(cabin_data)} %>% sqrt() %>% round(2)`, lo que indica una relación entre débil y moderada, sugiriendo que existe poder predictivo en la variable `Cabin` para predecir si un pasajero sobrevivió a la tragedia. En otras palabras, los datos faltantes corresponden a la categoría de MAR (*Missing At Random*) y es conveniente conservarlos en el dataset.
 
 Antes de decidir un método para la imputación de la columna `Age`, es adecuado observar la distribución de las edades de los pasajeros.
 
@@ -144,10 +144,15 @@ titanic_train %>%
 En apariencia, la distribución de edad de los pasajeros es bimodal, con grupos bien definidos de población de menores y de adultos. El primer grupo etáreo alcanzaría el 19% de los pasajeros. Por supuesto, esto correlaciona con la distribución de títulos de los pasajeros: 
 
 ```{r}
-extract_title <- function(x) stringr::str_remove(str_extract(x, "Mr\\.? |Mrs\\.?|Miss\\.?|Master\\.?"), "\\.")
+extract_title <- function(x) {
+  x %>% 
+    str_extract("Mr\\.? |Mrs\\.?|Miss\\.?|Master\\.?") %>% 
+    stringr::str_remove("\\.") %>% 
+    if_else(is.na(.), "Other", .)
+}
 
 titanic_train %>% 
-  mutate(Title = create_title(Name)) %>% 
+  mutate(Title = if_else(is.na(extract_title(Name)), "Other", extract_title(Name))) %>% 
   group_by(Title) %>% 
   summarize(across(Age, list("Min Age" = min, "Max Age" = max), na.rm = TRUE, .names = "{.fn}"))
 ```
@@ -172,7 +177,7 @@ titanic_train %>%
        x = "Age", y = "Frecuencia absoluta")
 ```
 
-Se observa que pese al traslape de las distribuciones, la edad sí puede ser caracterizada por el título de la pasajera, Finalmente, los valores faltantes de edad serán imputados con el algortimo *KNN* y utilizando la *distancia de Gower*, cuyos predictores serán las variables `Title`, `Sex`, `SibSp` y `Parch`.
+Se observa que pese al traslape de las distribuciones, la edad sí puede ser caracterizada por el título de la pasajera. Finalmente, los valores faltantes de edad serán imputados con el algoritmo *KNN* y utilizando la *distancia de Gower*, cuyos predictores serán las variables `Title`, `Sex`, `SibSp` y `Parch`.
 
 ### Imputación de los valores faltantes
 
@@ -186,7 +191,7 @@ rf_recipe <-
   recipe(Survived ~ ., data = titanic_train) %>% 
   step_impute_mode(Embarked) %>% 
   step_mutate(Cabin = if_else(is.na(Cabin), "Yes", "No"),
-              Title = if_else(is.na(extract_title(Name)), "Other", extract_title(Name))) %>% 
+              Title = extract_title(Name)) %>% 
   step_impute_knn(Age, impute_with = c("Title", "Sex", "SibSp", "Parch")) %>% 
   update_role(PassengerId, Name, new_role = "id")
 ```
@@ -202,9 +207,9 @@ titanic_folds <- vfold_cv(titanic_train, v = 10)
 
 Los errores de entrenamiento y validación serán calculados para cada uno de los subconjuntos en `titanic_folds`, estimando el error de validación como la media de los 10 errores de validación parciales.
 
-Paralelamente, se declara la especificación del modelo de ranfom forests utilizando engine del paquete `ranger`, en *modo clasificación*. Los hiperparámetros a afinar se deifnen a continuación:
+Paralelamente, se declara la especificación del modelo de ranfom forests utilizando engine del paquete `ranger`, en *modo clasificación*. Los hiperparámetros a afinar se definen a continuación:
 
-- **mtry**: un entero para el número de predictores que son muestreados aleatoriamente en cada separación al crear lo modelos de árbol.
+- **mtry**: un entero para el número de predictores que son muestreados aleatoriamente en cada separación al crear los modelos de árbol.
 
 - **min_n**: un entero para el número mínimo de puntos necesarios en un nodo para que pueda seguir dividiéndose.
 
@@ -224,6 +229,7 @@ rf_spec <-
 Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el parámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas.
 
 ```{r}
+set.seed(123)
 rf_grid <- 
   grid_max_entropy(
     rf_spec %>% 
@@ -252,17 +258,6 @@ rf_res <-
     control = control_resamples(save_pred = TRUE)
   )
 ```
-
-
-```{r}
-rf_recipe %>% prep() %>% bake(NULL)
-```
-
-```{r}
-tidy(rf_recipe)
-```
-
-
 
 
 
