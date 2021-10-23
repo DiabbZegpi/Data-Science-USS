@@ -95,6 +95,9 @@ colnames(titanic_train[!colnames(titanic_train) %in% colnames(titanic_test)])
 La única columna que no se encuentra en el conjunto de prueba es `Survived`. Posteriormente, se examina el dataset de entrenamiento en búsqueda de valores faltantes.
 
 ```{r}
+# Dependencias 
+# install.packages(c("tidyverse", "tidymodels", "ranger", "here"))
+
 titanic_train %>% 
   summarise(across(everything(), ~sum(is.na(.)))) %>% 
   pivot_longer(cols = everything(), names_to = "Campo", values_to = "NAs") %>% 
