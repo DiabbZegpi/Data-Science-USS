@@ -133,7 +133,7 @@ Con un nivel de significancia del 5% se rechaza la hipótesis nula, concluyendo 
 
 $$\phi = \sqrt{\frac{\chi^2}{n}} \hspace{1cm} 0 \leq \phi \leq 1,$$
 
-donde $\chi^2$ es el estadístico de la prueba chi cuadrado y $n$ es la cantidad de observaciones (pasajeros). El coeficiente estimado es de `r cabin_data %>% {chisq.test(.$Survived, .$"Has cabin")} %>% {.$statistic / nrow(cabin_data)} %>% sqrt() %>% round(2)`, lo que indica una relación entre débil y moderada, sugiriendo que existe poder predictivo en la variable `Cabin` para predecir si un pasajero sobrevivió a la tragedia. En otras palabras, los datos faltantes corresponden a la categoría de MAR (*Missing At Random*) y es conveniente conservarlos en el dataset.
+donde $\chi^2$ es el estadístico de la prueba chi cuadrado y $n$ es la cantidad de observaciones (pasajeros). El coeficiente estimado es de `r cabin_data %>% {chisq.test(.$Survived, .$"Cabin")} %>% {.$statistic / nrow(cabin_data)} %>% sqrt() %>% round(2)`, lo que indica una relación entre débil y moderada, sugiriendo que existe poder predictivo en la variable `Cabin` para predecir si un pasajero sobrevivió a la tragedia. En otras palabras, los datos faltantes corresponden a la categoría de MAR (*Missing At Random*) y es conveniente conservarlos en el dataset.
 
 Antes de decidir un método para la imputación de la columna `Age`, es adecuado observar la distribución de las edades de los pasajeros.
 
@@ -262,17 +262,23 @@ rf_wf <-
 
 Afinar 20 combinaciones de hiperparámetros en 10 subconjuntos de datos implica ajustar 200 veces el modelo de random forest, con una cantidad de árboles que varía entre las decenas y un par de miles. Para acelerar los cálculos, se permite que tidymodels acceda a los múltiples cores que tiene el computador mediante computación paralela, con `doParallel`.
 
-```{r}
+```{r eval=FALSE}
 doParallel::registerDoParallel()
-rf_res <- 
-  tune_grid(
-    rf_wf,
-    resamples = titanic_folds,
-    grid = rf_grid,
-    control = control_resamples(save_pred = TRUE)
-  )
+set.seed(123)
+rf_res <- tune_grid(
+  rf_wf,
+  resamples = titanic_folds,
+  grid = rf_grid,
+  control = control_resamples(save_pred = TRUE)
+)
 ```
 
+```{r echo=FALSE, eval=FALSE}
+write_rds(rf_res, file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
+```
 
+```{r echo=FALSE}
+rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
+```
 
 
