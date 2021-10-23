@@ -69,11 +69,15 @@ knitr::opts_chunk$set(
 
 
 ```{r warning=FALSE, message=FALSE}
+# Dependencias 
+# install.packages(c("tidyverse", "tidymodels", "ranger", "here"))
+
 library(tidyverse)
 library(tidymodels)
 library(here)
 titanic_train <- read_csv(here("Machine Learning Avanzado", "train.csv"))
 titanic_test <- read_csv(here("Machine Learning Avanzado", "test.csv"))
+titanic_train$Survived <- factor(titanic_train$Survived)
 ```
 
 ```{r echo=FALSE}
@@ -95,9 +99,6 @@ colnames(titanic_train[!colnames(titanic_train) %in% colnames(titanic_test)])
 La única columna que no se encuentra en el conjunto de prueba es `Survived`. Posteriormente, se examina el dataset de entrenamiento en búsqueda de valores faltantes.
 
 ```{r}
-# Dependencias 
-# install.packages(c("tidyverse", "tidymodels", "ranger", "here"))
-
 titanic_train %>% 
   summarise(across(everything(), ~sum(is.na(.)))) %>% 
   pivot_longer(cols = everything(), names_to = "Campo", values_to = "NAs") %>% 
@@ -211,7 +212,7 @@ Debido a que el dataset es pequeño como para crear un conjunto de validación q
 
 ```{r}
 set.seed(123)
-titanic_folds <- vfold_cv(titanic_train, v = 10)
+titanic_folds <- vfold_cv(train_processed, v = 10)
 ```
 
 Los errores de entrenamiento y validación serán calculados para cada uno de los subconjuntos en `titanic_folds`, estimando el error de validación como la media de los 10 errores de validación parciales.
@@ -235,7 +236,7 @@ rf_spec <-
   set_engine("ranger")
 ```
 
-Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el hiperparámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas.
+Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el hiperparámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas (entre 1 y 10 porque hay 10 variables: 1 objetivo y 9 predictoras).
 
 ```{r}
 set.seed(123)
@@ -243,19 +244,23 @@ rf_grid <-
   grid_max_entropy(
     rf_spec %>% 
       parameters() %>% 
-      update(mtry = range_set(mtry(), c(1, 11))),
+      update(mtry = range_set(mtry(), c(1, 10))),
     size = 20
   )
 ```
 
-Una vez se tienen los componentes más importantes del framework de tidymodels (recipe, model specification, data resampling & tunning grid), se procede a crear un workflow que los haga interactuar.
+Una vez se tienen los componentes más importantes del framework de tidymodels (preprocesamiento, especificación de modelo, resampling y mecanismo de afinación de hiperparámetros), se procede a crear un workflow que los haga interactuar.
 
 ```{r}
+rf_formula <- formula(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Cabin + Embarked + Title)
+
 rf_wf <- 
   workflow() %>% 
-  add_recipe(rf_recipe) %>% 
-  add_model(rf_spec)
+  add_model(rf_spec) %>% 
+  add_formula(rf_formula)
 ```
+
+Afinar 20 combinaciones de hiperparámetros en 10 subconjuntos de datos implica ajustar 200 veces el modelo de random forest, con una cantidad de árboles que varía entre las decenas y un par de miles. Para acelerar los cálculos, se permite que tidymodels acceda a los múltiples cores que tiene el computador mediante computación paralela, con `doParallel`.
 
 ```{r}
 doParallel::registerDoParallel()
