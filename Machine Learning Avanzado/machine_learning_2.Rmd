@@ -71,8 +71,9 @@ knitr::opts_chunk$set(
 ```{r warning=FALSE, message=FALSE}
 library(tidyverse)
 library(tidymodels)
-titanic_train <- read_csv("train.csv")
-titanic_test <- read_csv("test.csv")
+library(here)
+titanic_train <- read_csv(here("Machine Learning Avanzado", "train.csv"))
+titanic_test <- read_csv(here("Machine Learning Avanzado", "test.csv"))
 ```
 
 ```{r echo=FALSE}
@@ -226,7 +227,7 @@ rf_spec <-
   set_engine("ranger")
 ```
 
-Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el parámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas.
+Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el hiperparámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas.
 
 ```{r}
 set.seed(123)
