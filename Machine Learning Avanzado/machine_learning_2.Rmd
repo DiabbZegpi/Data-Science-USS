@@ -70,7 +70,7 @@ knitr::opts_chunk$set(
 
 ```{r warning=FALSE, message=FALSE}
 # Dependencias 
-# install.packages(c("tidyverse", "tidymodels", "ranger", "here"))
+# install.packages(c("tidyverse", "tidymodels", "ranger", "here", "vip"))
 
 library(tidyverse)
 library(tidymodels)
@@ -206,7 +206,7 @@ test_processed <- bake(prep_recipe, new_data = titanic_test %>%
                          mutate(across(where(is.character), as.factor)))
 ```
 
-### Resampling y Ajuste de hiperparámetros
+### Resampling y afinación de hiperparámetros
 
 Debido a que el dataset es pequeño como para crear un conjunto de validación que sirva para la estimación del desempeño del modelo, se utilizará el método de *10-fold cross validation*.
 
@@ -280,5 +280,73 @@ write_rds(rf_res, file = here("Machine Learning Avanzado", "rf_res_titanic.rds")
 ```{r echo=FALSE}
 rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
 ```
+
+La mejor combinación de hiperparámetros resultó ser trees: 1906, mtry: 9 y min_n: 15. Esta combinación alcanzó un accuracy estimado de 0.845, con un error estándar estimado de 0.0128.
+
+```{r echo=FALSE, fig.width=9}
+collect_metrics(rf_res) %>% 
+  filter(.metric == "accuracy") %>% 
+  pivot_longer(mtry:min_n) %>% 
+  group_by(name) %>% 
+  mutate(best = ifelse(mean == max(mean), "best", "not best")) %>% 
+  ungroup() %>% 
+  ggplot(aes(value, mean, color = name, size = mean)) +
+  geom_point(show.legend = FALSE, alpha = .7) +
+  scale_color_manual(values = c("#a92759", "#354fa9", "#018666")) +
+  facet_wrap(~name, scales = "free_x") +
+  labs(title = "Ajuste de hiperparámetros con validación cruzada",
+       x = "Valor del hiperparámetro", y = "Exactitud media de clasificación") +
+  theme(strip.background = element_rect(fill = "#fff9fa"),
+        strip.text = element_text(color = "#111111", face = "italic", size = "16"))
+```
+
+Antes de avanzar a interpretar los resultados, hace falta entrenar al modelo con todos los datos de entrenamiento y con la mejor configuración de hiperparámetros.
+
+```{r echo=FALSE}
+collect_predictions(rf_res) %>% 
+  group_by(.config) %>%  
+  roc_curve(Survived, .pred_0) %>% 
+  ggplot(aes(1 - specificity, sensitivity)) +
+  geom_line(show.legend = FALSE, alpha = .7, size = .3, aes(group = .config), color = "gray50") +
+  stat_summary(geom = "line", fun = mean, color = "#a92759", size = 1) +
+  geom_abline(linetype = 2) +
+  annotate(geom = "text", x = .42, y = .65, size = 4.5, family = "Noto Sans", fontface = "italic",
+           label = "ROC AUC media = 0.880\nStd. Error = 0.0115") +
+  coord_fixed() +
+  labs(title = "Curva ROC del ajuste de hiperparámetros")
+```
+
+```{r}
+best_model <- select_best(rf_res, metric = "accuracy")
+final_wf <- rf_wf %>% update_model(finalize_model(rf_spec, best_model))
+set.seed(123)
+rf_fit <- fit(final_wf, data = train_processed)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
