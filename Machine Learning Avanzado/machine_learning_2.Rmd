@@ -188,11 +188,16 @@ Se observa que pese al traslape de las distribuciones, la edad sí puede ser car
 
 Para culminar el tratamiento de los datos faltantes, las transformaciones e imputaciones se llevarán a cabo utilizando el framework de machine learning `tidymodels`, porque facilita la incorporación de las etapas de procesamiento de datos en el flujo de trabajo de data science. 
 
-El primer paso es crear un objeto de *receta* que contendrá todas las etapas del procesamiento deseadas. Esta receta se usará posteriormente para crear el dataset al que se ajustará un modelo de *random forests*, por ésto el nombre de `rf_recipe`. Después, se incorporan la imputación por la moda de `Embarked`, la transformación de la columna `Cabin`, la creación de la columna `Title` y la imputación con KNN de la columna `Age`. 
+El primer paso es separar los datos de entrenamiento en entrenamiento y validación, con 3/4 de los datos en el conjunto de entrenamiento. Luego, se crea un objeto de *receta* que contendrá todas las etapas del procesamiento deseadas. Esta receta se usará posteriormente para crear el dataset al que se ajustará un modelo de *random forests*, por ésto el nombre de `rf_recipe`. Después, se incorporan la imputación por la moda de `Embarked`, la transformación de la columna `Cabin`, la creación de la columna `Title` y la imputación con KNN de la columna `Age`. 
 
 Random forest no requiere preprocesamiento exhaustivo sobre los datos de entrenamiento, tales como transformaciones matemáticas (logaritmo de `Fare` o z-score de `Age`) y creación de variables dummy. Además, cabe destacar que `bake()` aplica las transformaciones de la receta a nuevos conjuntos de datos; si `new_data = NULL` entonces retorna los datos de entrenamientos transformados; si `new_data = titanic_test`, se aplican las transformaciones **calculadas sobre el conjunto de entrenamiento** para retornar el conjunto de prueba transformado, evitando así data leakage. 
 
 ```{r}
+set.seed(123)
+titanic_split <- initial_split(titanic_train, strata = Survived)
+titanic_train <- training(titanic_split)
+titanic_val <- testing(titanic_split)
+
 rf_recipe <- 
   recipe(~ ., data = titanic_train) %>% 
   step_impute_mode(Embarked) %>% 
@@ -202,6 +207,8 @@ rf_recipe <-
 
 prep_recipe <- prep(rf_recipe)  
 train_processed <- bake(prep_recipe, new_data = NULL)
+val_processed <- bake(prep_recipe, new_data = titanic_val %>%
+                         mutate(across(where(is.character), as.factor)))
 test_processed <- bake(prep_recipe, new_data = titanic_test %>%
                          mutate(across(where(is.character), as.factor)))
 ```
@@ -307,11 +314,11 @@ collect_predictions(rf_res) %>%
   group_by(.config) %>%  
   roc_curve(Survived, .pred_0) %>% 
   ggplot(aes(1 - specificity, sensitivity)) +
-  geom_line(show.legend = FALSE, alpha = .7, size = .3, aes(group = .config), color = "gray50") +
+  geom_line(show.legend = FALSE, alpha = .7, size = .7, aes(group = .config), color = "gray50") +
   stat_summary(geom = "line", fun = mean, color = "#a92759", size = 1) +
   geom_abline(linetype = 2) +
-  annotate(geom = "text", x = .42, y = .65, size = 4.5, family = "Noto Sans", fontface = "italic",
-           label = "ROC AUC media = 0.880\nStd. Error = 0.0115") +
+  annotate(geom = "text", x = .35, y = .65, size = 4.5, family = "Noto Sans", fontface = "italic",
+           label = "ROC AUC media = 0.880\nStd. Error = 0.0115", hjust = 0) +
   coord_fixed() +
   labs(title = "Curva ROC del ajuste de hiperparámetros")
 ```
