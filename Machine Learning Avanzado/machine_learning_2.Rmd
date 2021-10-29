@@ -317,13 +317,14 @@ collect_predictions(rf_res) %>%
   geom_line(show.legend = FALSE, alpha = .7, size = .7, aes(group = .config), color = "gray50") +
   stat_summary(geom = "line", fun = mean, color = "#a92759", size = 1) +
   geom_abline(linetype = 2) +
-  annotate(geom = "text", x = .35, y = .65, size = 4.5, family = "Noto Sans", fontface = "italic",
+  annotate(geom = "text", x = .25, y = .75, size = 4.5, family = "Noto Sans", fontface = "italic",
            label = "ROC AUC media = 0.880\nStd. Error = 0.0115", hjust = 0) +
   coord_fixed() +
-  labs(title = "Curva ROC del ajuste de hiperparámetros")
+  labs(title = "Curva ROC del ajuste de hiperparámetros") +
+  theme(plot.margin = unit(c(.5,3.3,.5,3.3), "cm"))
 ```
 
-```{r}
+```{r echo=FALSE, eval=FALSE}
 best_model <- select_best(rf_res, metric = "accuracy")
 final_wf <- rf_wf %>% update_model(finalize_model(rf_spec, best_model))
 set.seed(123)
