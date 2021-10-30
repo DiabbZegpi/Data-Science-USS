@@ -88,8 +88,7 @@ theme_update(
   text = element_text(color = "#111111"),
   plot.title = element_text(hjust = .5),
   strip.background = element_rect(fill = "#fff9fa"),
-  strip.text = element_text(color = "#111111", face = "italic", size = "16"),
-  plot.margin = unit(c(.5,3.3,.5,3.3), "cm")
+  strip.text = element_text(color = "#111111", face = "italic", size = "16")
 )
 ```
 
@@ -246,7 +245,7 @@ rf_spec <-
     trees = tune()
   ) %>% 
   set_mode("classification") %>% 
-  set_engine("ranger")
+  set_engine("ranger", importance = "impurity")
 ```
 
 Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el hiperparámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas (entre 1 y 10 porque hay 10 variables: 1 objetivo y 9 predictoras).
@@ -254,7 +253,7 @@ Se elige usar un método de búsqueda en grilla para optimizar la combinación d
 ```{r}
 set.seed(123)
 rf_grid <- 
-  grid_max_entropy(
+  grid_latin_hypercube(
     rf_spec %>% 
       parameters() %>% 
       update(mtry = range_set(mtry(), c(1, 10))),
@@ -294,9 +293,9 @@ write_rds(rf_res, file = here("Machine Learning Avanzado", "rf_res_titanic.rds")
 rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
 ```
 
-La mejor combinación de hiperparámetros resultó ser trees: 496, mtry: 5 y min_n: 7. Esta combinación alcanzó un accuracy estimado de 0.843, con un error estándar estimado de 0.0161. Paralelamente, el área media bajo la curva ROC estimada es 0.884, con error estándar de 0.0161.
+La mejor combinación de hiperparámetros resultó ser trees: 281, mtry: 5 y min_n: 5. Esta combinación alcanzó un accuracy estimado de 0.843, con un error estándar estimado de 0.0142. Paralelamente, el área media bajo la curva ROC estimada es 0.881, con error estándar de 0.0157.
 
-```{r echo=FALSE, fig.width=11, fig.height=5.5}
+```{r echo=FALSE, fig.width=11}
 collect_metrics(rf_res) %>% 
   filter(.metric == "accuracy") %>% 
   pivot_longer(mtry:min_n) %>% 
@@ -320,9 +319,10 @@ collect_predictions(rf_res) %>%
   stat_summary(geom = "line", fun = mean, color = "#a92759", size = 1) +
   geom_abline(linetype = 2) +
   annotate(geom = "text", x = .45, y = .35, size = 4.5, family = "Noto Sans", fontface = "italic",
-           label = "ROC AUC media = 0.884\nStd. Error = 0.0161", hjust = 0) +
+           label = "ROC AUC media = 0.881\nStd. Error = 0.0142", hjust = 0) +
   coord_fixed() +
-  labs(title = "Curva ROC del ajuste de hiperparámetros") 
+  labs(title = "Curva ROC del ajuste de hiperparámetros") +
+  theme(plot.margin = unit(c(.5,3.3,.5,3.3), "cm"))
 ```
 
 Antes de avanzar a interpretar los resultados, hace falta entrenar al modelo con todos los datos de entrenamiento y con la mejor configuración de hiperparámetros.
@@ -337,9 +337,25 @@ rf_fit <- fit(final_wf, data = train_processed)
 ```{r}
 bind_rows(train = train_processed, validation = val_processed, test = test_processed, .id = "set") %>% 
   nest(data = all_of(2:ncol(.))) %>% 
-  mutate(pred = map(data, ~predict(rf_fit, new_data = .x))) 
+  mutate(pred = map(data, ~predict(rf_fit, new_data = .x))) %>% 
+  filter(set %in% c("train", "validation")) %>% 
+  unnest(cols = c(data, pred)) %>% 
+  nest(data = all_of(2:ncol(.))) %>% 
+  mutate(accuracy = map(data, ~accuracy(.x, Survived, .pred_class)),
+         accuracy = map_dbl(accuracy, ".estimate"),
+         sensitivity = map(data, ~sensitivity(.x, Survived, .pred_class)),
+         sensitivity = map_dbl(sensitivity, ".estimate"),
+         specificity = map(data, ~specificity(.x, Survived, .pred_class)),
+         specificity = map_dbl(specificity, ".estimate")) %>% 
+  pivot_longer(cols = accuracy:specificity) %>% 
+  ggplot(aes(set, value, color = name, group = name)) +
+  geom_line() +
+  geom_label(aes(label = round(value, 2)))
 ```
 
+```{r}
+vip::vip(rf_fit$fit$fit)
+```
 
 
 
