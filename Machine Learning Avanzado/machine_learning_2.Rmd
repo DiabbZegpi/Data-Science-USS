@@ -81,12 +81,14 @@ titanic_train$Survived <- factor(titanic_train$Survived)
 ```
 
 ```{r echo=FALSE}
+library(ggtext)
 theme_set(theme_light(base_family = "Segoe UI", base_size = 16))
 theme_update(
   plot.background = element_rect(fill = "#fff9fa", color = "transparent"),
   panel.background = element_rect(fill = "#eeeeee"),
   text = element_text(color = "#111111"),
   plot.title = element_text(hjust = .5),
+  plot.subtitle = element_markdown(hjust = .5),
   strip.background = element_rect(fill = "#fff9fa"),
   strip.text = element_text(color = "#111111", face = "italic", size = "16")
 )
@@ -167,7 +169,6 @@ titanic_train %>%
 Los grupos con títulos masculinos están bien caracterizados, y una estimación de la edad por la media del grupo sería más adecuada que estimar por la media de la muestra completa. Sin embargo, los títulos femeninos presentan solapamiento.
 
 ```{r echo=FALSE}
-library(ggtext)
 miss_mrs <- tibble(label = "La distribución de la edad de las pasajeras<br>del Titanic es mixta y se compone de los<br>subgrupos <b style='color:#592759;'>Miss.</b> y <b style='color:#354f79;'>Mrs.</b>",
                    x = 47, y = 22)
 
@@ -256,8 +257,9 @@ rf_grid <-
   grid_latin_hypercube(
     rf_spec %>% 
       parameters() %>% 
-      update(mtry = range_set(mtry(), c(1, 10))),
-    size = 100
+      update(mtry = range_set(mtry(), c(1, 10)),
+             trees = range_set(trees(), c(200, 2000))),
+    size = 200
   )
 ```
 
@@ -272,7 +274,7 @@ rf_wf <-
   add_formula(rf_formula)
 ```
 
-Afinar 100 combinaciones de hiperparámetros en 10 subconjuntos de datos implica ajustar 1000 veces el modelo de random forest, con una cantidad de árboles que varía entre las decenas y un par de miles. Para acelerar los cálculos, se permite que tidymodels acceda a los múltiples cores que tiene el computador mediante computación paralela, con `doParallel`.
+Afinar 200 combinaciones de hiperparámetros en 10 subconjuntos de datos implica ajustar 2000 veces el modelo de random forest, con una cantidad de árboles que varía entre 200 y 2000. Para acelerar los cálculos, se permite que tidymodels acceda a los múltiples cores que tiene el computador mediante computación paralela, con `doParallel`.
 
 ```{r eval=FALSE}
 doParallel::registerDoParallel()
@@ -293,7 +295,7 @@ write_rds(rf_res, file = here("Machine Learning Avanzado", "rf_res_titanic.rds")
 rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
 ```
 
-La mejor combinación de hiperparámetros resultó ser trees: 281, mtry: 5 y min_n: 5. Esta combinación alcanzó un accuracy estimado de 0.843, con un error estándar estimado de 0.0142. Paralelamente, el área media bajo la curva ROC estimada es 0.881, con error estándar de 0.0157.
+La mejor combinación de hiperparámetros resultó ser trees: 1808, mtry: 5 y min_n: 10. Esta combinación alcanzó un accuracy estimado de 0.843, con un error estándar estimado de 0.0142. Paralelamente, el área media bajo la curva ROC estimada es 0.881, con error estándar de 0.0157.
 
 ```{r echo=FALSE, fig.width=11}
 collect_metrics(rf_res) %>% 
@@ -328,32 +330,46 @@ collect_predictions(rf_res) %>%
 Antes de avanzar a interpretar los resultados, hace falta entrenar al modelo con todos los datos de entrenamiento y con la mejor configuración de hiperparámetros.
 
 ```{r}
-best_model <- select_best(rf_res, metric = "accuracy")
-final_wf <- rf_wf %>% update_model(finalize_model(rf_spec, best_model))
+best_accuracy <- select_best(rf_res, metric = "accuracy")
+best_roc <- select_best(rf_res, metric = "roc_auc")
+final_wf_accuracy <- rf_wf %>% update_model(finalize_model(rf_spec, best_accuracy))
+final_wf_roc <- rf_wf %>% update_model(finalize_model(rf_spec, best_roc))
 set.seed(123)
-rf_fit <- fit(final_wf, data = train_processed)
+rf_fit_accuracy <- fit(final_wf_accuracy, data = train_processed)
+set.seed(123)
+rf_fit_roc <- fit(final_wf_roc, data = train_processed)
 ```
 
-```{r}
-bind_rows(train = train_processed, validation = val_processed, test = test_processed, .id = "set") %>% 
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=9, fig.height=6}
+bind_rows(train = train_processed, validation = val_processed, .id = "set") %>% 
   nest(data = all_of(2:ncol(.))) %>% 
-  mutate(pred = map(data, ~predict(rf_fit, new_data = .x))) %>% 
-  filter(set %in% c("train", "validation")) %>% 
-  unnest(cols = c(data, pred)) %>% 
-  nest(data = all_of(2:ncol(.))) %>% 
+  mutate(pred_accuracy = map(data, ~predict(rf_fit_accuracy, new_data = .x)),
+         pred_roc = map(data, ~predict(rf_fit_roc, new_data = .x))) %>% 
+  unnest(cols = c(data, pred_accuracy, pred_roc), names_repair = "universal") %>% 
+  rename("Best Accuracy" = .pred_class...15, "Best ROC AUC" = .pred_class...16) %>%
+  pivot_longer(cols = starts_with("Best"), names_to = "metric", values_to = ".pred_class") %>% 
+  relocate(set, metric) %>% 
+  nest(data = all_of(3:ncol(.))) %>% 
   mutate(accuracy = map(data, ~accuracy(.x, Survived, .pred_class)),
          accuracy = map_dbl(accuracy, ".estimate"),
          sensitivity = map(data, ~sensitivity(.x, Survived, .pred_class)),
          sensitivity = map_dbl(sensitivity, ".estimate"),
          specificity = map(data, ~specificity(.x, Survived, .pred_class)),
-         specificity = map_dbl(specificity, ".estimate")) %>% 
+         specificity = map_dbl(specificity, ".estimate")) %>%  
   pivot_longer(cols = accuracy:specificity) %>% 
   ggplot(aes(set, value, color = name, group = name)) +
-  geom_line() +
-  geom_label(aes(label = round(value, 2)))
+  geom_line(size = 1) +
+  geom_label(aes(label = round(value, 2)), size = 5, fontface = "bold", label.size = 1) +
+  scale_color_manual(values = c("#a92759", "#354fa9", "#018666")) +
+  coord_cartesian(ylim = c(.8, 1)) +
+  facet_wrap(~metric) +
+  theme(legend.position = "none") +
+  labs(x = "Set", y = "Valor de la métrica", 
+       title = "¿Qué métrica es mejor para seleccionar hiperparámetros?",
+       subtitle = "Comparación entre <b style='color:#354fa9;'>sensitivity</b>, <b style='color:#a92759;'>accuracy</b> y <b style='color:#018666;'>specificity</b>") 
 ```
 
-```{r}
+```{r echo=FALSE, eval=FALSE}
 vip::vip(rf_fit$fit$fit)
 ```
 
