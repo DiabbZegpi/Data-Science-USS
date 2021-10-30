@@ -373,10 +373,15 @@ Se observa que ambos modelos tienden a sobreajustarse. La configuración para el
 
 ### Análisis de los resultados 
 
-En el gráfico anterior se aprecia que el mejor modelo (**Best Accuracy**) tiene buen desempeño cuando clasifica pasajeros que no sobrevivieron (specificity), pero empeora al clasificar pasajeros que sobrevivieron (sensitivity). Esto puede deberse al desbalance que existe entre las clases 0 y 1 del factor `Survived` en el conjunto de entrenamiento, que es 62% contra 38%, respectivamente.
+En el gráfico anterior se aprecia que el mejor modelo (**Best Accuracy**) tiene buen desempeño cuando clasifica pasajeros que no sobrevivieron (specificity), pero empeora al clasificar pasajeros que sobrevivieron (sensitivity). Esto puede deberse al desbalance que existe entre las clases 0 y 1 del factor `Survived` en el conjunto de entrenamiento, que es 62% contra 38%, respectivamente. La manera común de palear este desbalance es usando técnicas de muestreo con reemplazo de la clase minoritaria (*upsampling*) o muestreo de la clase mayoritaria, con tamaño muestral igual a la clase minoritaria (*downsampling*). En este documento se mantendrá el modelo tal cual está.
 
-```{r echo=FALSE, eval=FALSE}
-vip::vip(rf_fit$fit$fit)
+```{r echo=FALSE}
+vip::vi(rf_fit_accuracy$fit$fit) %>% 
+  mutate(Variable = fct_reorder(Variable, Importance)) %>% 
+  ggplot(aes(Importance, Variable)) +
+  geom_col(fill = "#012626", alpha = .7) +
+  labs(y = NULL, x = "Importancia", 
+       title = "¿Cuáles son las variables más importances para el modelo?")
 ```
 
 
