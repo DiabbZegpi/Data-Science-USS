@@ -352,9 +352,9 @@ bind_rows(train = train_processed, validation = val_processed, .id = "set") %>%
   nest(data = all_of(3:ncol(.))) %>% 
   mutate(accuracy = map(data, ~accuracy(.x, Survived, .pred_class)),
          accuracy = map_dbl(accuracy, ".estimate"),
-         sensitivity = map(data, ~sensitivity(.x, Survived, .pred_class)),
+         sensitivity = map(data, ~sens(.x, Survived, .pred_class, event_level = "second")),
          sensitivity = map_dbl(sensitivity, ".estimate"),
-         specificity = map(data, ~specificity(.x, Survived, .pred_class)),
+         specificity = map(data, ~spec(.x, Survived, .pred_class, event_level = "second")),
          specificity = map_dbl(specificity, ".estimate")) %>%  
   pivot_longer(cols = accuracy:specificity) %>% 
   ggplot(aes(set, value, color = name, group = name)) +
@@ -366,10 +366,14 @@ bind_rows(train = train_processed, validation = val_processed, .id = "set") %>%
   theme(legend.position = "none") +
   labs(x = "Set", y = "Valor de la métrica", 
        title = "¿Optimizar Accuracy o ROC AUC?",
-       subtitle = "Comparación entre <b style='color:#354fa9;'>sensitivity</b>, <b style='color:#a92759;'>accuracy</b> y <b style='color:#018666;'>specificity</b>") 
+       subtitle = "Comparación entre <b style='color:#018666;'>specificity</b>, <b style='color:#a92759;'>accuracy</b> y <b style='color:#354fa9;'>sensitivity</b>") 
 ```
 
 Se observa que ambos modelos tienden a sobreajustarse. La configuración para el mejor accuracy sobreajusta menos que la configuración con mejor ROC AUC, porque la diferencia entre las métricas de desempeño calculadas en los conjuntos de entrenamiento y validación es menor. Por lo tanto, se escoge la configuración del mejor accuracy para realizar las predicciones sobre el conjunto de prueba.
+
+### Análisis de los resultados 
+
+En el gráfico anterior se aprecia que el mejor modelo (**Best Accuracy**) tiene buen desempeño cuando clasifica pasajeros que no sobrevivieron (specificity), pero empeora al clasificar pasajeros que sobrevivieron (sensitivity). Esto puede deberse al desbalance que existe entre las clases 0 y 1 del factor `Survived` en el conjunto de entrenamiento, que es 62% contra 38%, respectivamente.
 
 ```{r echo=FALSE, eval=FALSE}
 vip::vip(rf_fit$fit$fit)
