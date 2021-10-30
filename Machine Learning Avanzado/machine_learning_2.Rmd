@@ -86,7 +86,10 @@ theme_update(
   plot.background = element_rect(fill = "#fff9fa", color = "transparent"),
   panel.background = element_rect(fill = "#eeeeee"),
   text = element_text(color = "#111111"),
-  plot.title = element_text(hjust = .5)
+  plot.title = element_text(hjust = .5),
+  strip.background = element_rect(fill = "#fff9fa"),
+  strip.text = element_text(color = "#111111", face = "italic", size = "16"),
+  plot.margin = unit(c(.5,3.3,.5,3.3), "cm")
 )
 ```
 
@@ -184,6 +187,8 @@ titanic_train %>%
 
 Se observa que pese al traslape de las distribuciones, la edad sí puede ser caracterizada por el título de la pasajera. Finalmente, los valores faltantes de edad serán imputados con el algoritmo *KNN* y utilizando la *distancia de Gower*, cuyos predictores serán las variables `Title`, `Sex`, `SibSp` y `Parch`.
 
+Finalmente, el conjunto de prueba presenta un valor faltante en la columna `Fare`. Este será imputado con los vecinos más cercanos utilizando `Age`, `Sex`, `Embarked` y `Pclass`.
+
 ### Imputación de los valores faltantes
 
 Para culminar el tratamiento de los datos faltantes, las transformaciones e imputaciones se llevarán a cabo utilizando el framework de machine learning `tidymodels`, porque facilita la incorporación de las etapas de procesamiento de datos en el flujo de trabajo de data science. 
@@ -203,7 +208,8 @@ rf_recipe <-
   step_impute_mode(Embarked) %>% 
   step_mutate(Cabin = if_else(is.na(Cabin), "Yes", "No"),
               Title = extract_title(Name)) %>% 
-  step_impute_knn(Age, impute_with = c("Title", "Sex", "SibSp", "Parch")) 
+  step_impute_knn(Age, impute_with = c("Title", "Sex", "SibSp", "Parch")) %>% 
+  step_impute_knn(Fare, impute_with = c("Age", "Sex", "Embarked", "Pclass"))
 
 prep_recipe <- prep(rf_recipe)  
 train_processed <- bake(prep_recipe, new_data = NULL)
@@ -252,7 +258,7 @@ rf_grid <-
     rf_spec %>% 
       parameters() %>% 
       update(mtry = range_set(mtry(), c(1, 10))),
-    size = 20
+    size = 100
   )
 ```
 
@@ -267,7 +273,7 @@ rf_wf <-
   add_formula(rf_formula)
 ```
 
-Afinar 20 combinaciones de hiperparámetros en 10 subconjuntos de datos implica ajustar 200 veces el modelo de random forest, con una cantidad de árboles que varía entre las decenas y un par de miles. Para acelerar los cálculos, se permite que tidymodels acceda a los múltiples cores que tiene el computador mediante computación paralela, con `doParallel`.
+Afinar 100 combinaciones de hiperparámetros en 10 subconjuntos de datos implica ajustar 1000 veces el modelo de random forest, con una cantidad de árboles que varía entre las decenas y un par de miles. Para acelerar los cálculos, se permite que tidymodels acceda a los múltiples cores que tiene el computador mediante computación paralela, con `doParallel`.
 
 ```{r eval=FALSE}
 doParallel::registerDoParallel()
@@ -288,9 +294,9 @@ write_rds(rf_res, file = here("Machine Learning Avanzado", "rf_res_titanic.rds")
 rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
 ```
 
-La mejor combinación de hiperparámetros resultó ser trees: 1906, mtry: 9 y min_n: 15. Esta combinación alcanzó un accuracy estimado de 0.845, con un error estándar estimado de 0.0128.
+La mejor combinación de hiperparámetros resultó ser trees: 496, mtry: 5 y min_n: 7. Esta combinación alcanzó un accuracy estimado de 0.843, con un error estándar estimado de 0.0161. Paralelamente, el área media bajo la curva ROC estimada es 0.884, con error estándar de 0.0161.
 
-```{r echo=FALSE, fig.width=9}
+```{r echo=FALSE, fig.width=11, fig.height=5.5}
 collect_metrics(rf_res) %>% 
   filter(.metric == "accuracy") %>% 
   pivot_longer(mtry:min_n) %>% 
@@ -302,39 +308,37 @@ collect_metrics(rf_res) %>%
   scale_color_manual(values = c("#a92759", "#354fa9", "#018666")) +
   facet_wrap(~name, scales = "free_x") +
   labs(title = "Ajuste de hiperparámetros con validación cruzada",
-       x = "Valor del hiperparámetro", y = "Exactitud media de clasificación") +
-  theme(strip.background = element_rect(fill = "#fff9fa"),
-        strip.text = element_text(color = "#111111", face = "italic", size = "16"))
+       x = "Valor del hiperparámetro", y = "Exactitud media de clasificación") 
 ```
-
-Antes de avanzar a interpretar los resultados, hace falta entrenar al modelo con todos los datos de entrenamiento y con la mejor configuración de hiperparámetros.
 
 ```{r echo=FALSE}
 collect_predictions(rf_res) %>% 
   group_by(.config) %>%  
   roc_curve(Survived, .pred_0) %>% 
   ggplot(aes(1 - specificity, sensitivity)) +
-  geom_line(show.legend = FALSE, alpha = .7, size = .7, aes(group = .config), color = "gray50") +
+  geom_line(show.legend = FALSE, alpha = .7, size = .4, aes(group = .config), color = "gray50") +
   stat_summary(geom = "line", fun = mean, color = "#a92759", size = 1) +
   geom_abline(linetype = 2) +
-  annotate(geom = "text", x = .25, y = .75, size = 4.5, family = "Noto Sans", fontface = "italic",
-           label = "ROC AUC media = 0.880\nStd. Error = 0.0115", hjust = 0) +
+  annotate(geom = "text", x = .45, y = .35, size = 4.5, family = "Noto Sans", fontface = "italic",
+           label = "ROC AUC media = 0.884\nStd. Error = 0.0161", hjust = 0) +
   coord_fixed() +
-  labs(title = "Curva ROC del ajuste de hiperparámetros") +
-  theme(plot.margin = unit(c(.5,3.3,.5,3.3), "cm"))
+  labs(title = "Curva ROC del ajuste de hiperparámetros") 
 ```
 
-```{r echo=FALSE, eval=FALSE}
+Antes de avanzar a interpretar los resultados, hace falta entrenar al modelo con todos los datos de entrenamiento y con la mejor configuración de hiperparámetros.
+
+```{r}
 best_model <- select_best(rf_res, metric = "accuracy")
 final_wf <- rf_wf %>% update_model(finalize_model(rf_spec, best_model))
 set.seed(123)
 rf_fit <- fit(final_wf, data = train_processed)
 ```
 
-
-
-
-
+```{r}
+bind_rows(train = train_processed, validation = val_processed, test = test_processed, .id = "set") %>% 
+  nest(data = all_of(2:ncol(.))) %>% 
+  mutate(pred = map(data, ~predict(rf_fit, new_data = .x))) 
+```
 
 
 
