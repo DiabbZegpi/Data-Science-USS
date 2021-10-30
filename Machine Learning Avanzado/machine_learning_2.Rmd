@@ -249,7 +249,7 @@ rf_spec <-
   set_engine("ranger", importance = "impurity")
 ```
 
-Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de máxima entropía. Debido a que el hiperparámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas (entre 1 y 10 porque hay 10 variables: 1 objetivo y 9 predictoras).
+Se elige usar un método de búsqueda en grilla para optimizar la combinación de hiperparámetros. El diseño de grilla escogido es de hipercubo. Debido a que el hiperparámetro mtry depende de las dimensiones del dataset, el framework de tidymodels requiere que se finalice el parámetro con el rango de dimensiones correctas (entre 1 y 10 porque hay 10 variables: 1 objetivo y 9 predictoras).
 
 ```{r}
 set.seed(123)
@@ -257,7 +257,7 @@ rf_grid <-
   grid_latin_hypercube(
     rf_spec %>% 
       parameters() %>% 
-      update(mtry = range_set(mtry(), c(1, 10)),
+      update(mtry = range_set(mtry(), c(1, 9)),
              trees = range_set(trees(), c(200, 2000))),
     size = 200
   )
@@ -267,7 +267,6 @@ Una vez se tienen los componentes más importantes del framework de tidymodels (
 
 ```{r}
 rf_formula <- formula(Survived ~ Pclass + Sex + Age + SibSp + Parch + Fare + Cabin + Embarked + Title)
-
 rf_wf <- 
   workflow() %>% 
   add_model(rf_spec) %>% 
@@ -295,7 +294,7 @@ write_rds(rf_res, file = here("Machine Learning Avanzado", "rf_res_titanic.rds")
 rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"))
 ```
 
-La mejor combinación de hiperparámetros resultó ser trees: 1808, mtry: 5 y min_n: 10. Esta combinación alcanzó un accuracy estimado de 0.843, con un error estándar estimado de 0.0142. Paralelamente, el área media bajo la curva ROC estimada es 0.881, con error estándar de 0.0157.
+La combinación de hiperparámetros que optimiza accuracy resultó ser trees: 799, mtry: 4 y min_n: 22. Esta combinación alcanzó un accuracy estimado de 0.846, con un error estándar estimado de 0.0169. Paralelamente, el área media bajo la curva ROC estimada es 0.889, con error estándar de 0.0156.
 
 ```{r echo=FALSE, fig.width=11}
 collect_metrics(rf_res) %>% 
@@ -305,7 +304,8 @@ collect_metrics(rf_res) %>%
   mutate(best = ifelse(mean == max(mean), "best", "not best")) %>% 
   ungroup() %>% 
   ggplot(aes(value, mean, color = name, size = mean)) +
-  geom_point(show.legend = FALSE, alpha = .7) +
+  geom_point(show.legend = FALSE, alpha = .5) +
+  geom_smooth(show.legend = FALSE, method = "loess", formula = y ~ x) +
   scale_color_manual(values = c("#a92759", "#354fa9", "#018666")) +
   facet_wrap(~name, scales = "free_x") +
   labs(title = "Ajuste de hiperparámetros con validación cruzada",
@@ -321,13 +321,13 @@ collect_predictions(rf_res) %>%
   stat_summary(geom = "line", fun = mean, color = "#a92759", size = 1) +
   geom_abline(linetype = 2) +
   annotate(geom = "text", x = .45, y = .35, size = 4.5, family = "Noto Sans", fontface = "italic",
-           label = "ROC AUC media = 0.881\nStd. Error = 0.0142", hjust = 0) +
+           label = "ROC AUC media = 0.889\nStd. Error = 0.0156", hjust = 0) +
   coord_fixed() +
   labs(title = "Curva ROC del ajuste de hiperparámetros") +
   theme(plot.margin = unit(c(.5,3.3,.5,3.3), "cm"))
 ```
 
-Antes de avanzar a interpretar los resultados, hace falta entrenar al modelo con todos los datos de entrenamiento y con la mejor configuración de hiperparámetros.
+Sin embargo, prevalece la pregunta: para obtener el mejor conjunto de hiperparámetros ¿conviene optimizar accuracy o el área bajo la curva ROC? Para descubrir qué métrica conviene utilizar, se ajustan dos modelos de random forest, con las configuraciones óptimas de hiperparámetros para accuracy y área bajo la curva ROC, respectivamente.
 
 ```{r}
 best_accuracy <- select_best(rf_res, metric = "accuracy")
@@ -359,15 +359,17 @@ bind_rows(train = train_processed, validation = val_processed, .id = "set") %>%
   pivot_longer(cols = accuracy:specificity) %>% 
   ggplot(aes(set, value, color = name, group = name)) +
   geom_line(size = 1) +
-  geom_label(aes(label = round(value, 2)), size = 5, fontface = "bold", label.size = 1) +
+  geom_label(aes(label = round(value, 3)), size = 5, fontface = "bold", label.size = 1) +
   scale_color_manual(values = c("#a92759", "#354fa9", "#018666")) +
-  coord_cartesian(ylim = c(.8, 1)) +
+  coord_cartesian(ylim = c(.7, 1)) +
   facet_wrap(~metric) +
   theme(legend.position = "none") +
   labs(x = "Set", y = "Valor de la métrica", 
-       title = "¿Qué métrica es mejor para seleccionar hiperparámetros?",
+       title = "¿Optimizar Accuracy o ROC AUC?",
        subtitle = "Comparación entre <b style='color:#354fa9;'>sensitivity</b>, <b style='color:#a92759;'>accuracy</b> y <b style='color:#018666;'>specificity</b>") 
 ```
+
+Se observa que ambos modelos tienden a sobreajustarse. La configuración para el mejor accuracy sobreajusta menos que la configuración con mejor ROC AUC, porque la diferencia entre las métricas de desempeño calculadas en los conjuntos de entrenamiento y validación es menor. Por lo tanto, se escoge la configuración del mejor accuracy para realizar las predicciones sobre el conjunto de prueba.
 
 ```{r echo=FALSE, eval=FALSE}
 vip::vip(rf_fit$fit$fit)
