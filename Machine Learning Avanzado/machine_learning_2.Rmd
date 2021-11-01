@@ -197,7 +197,7 @@ Finalmente, el conjunto de prueba presenta un valor faltante en la columna `Fare
 
 Para culminar el tratamiento de los datos faltantes, las transformaciones e imputaciones se llevarán a cabo utilizando el framework de machine learning `tidymodels`, porque facilita la incorporación de las etapas de procesamiento de datos en el flujo de trabajo de data science. 
 
-El primer paso es separar los datos de entrenamiento en entrenamiento y validación, con 3/4 de los datos en el conjunto de entrenamiento. Luego, se crea un objeto de *receta* que contendrá todas las etapas del procesamiento deseadas. Esta receta se usará posteriormente para crear el dataset al que se ajustará un modelo de *random forests*, por ésto el nombre de `rf_recipe`. Después, se incorporan la imputación por la moda de `Embarked`, la transformación de la columna `Cabin`, la creación de la columna `Title` y la imputación con KNN de la columna `Age`. 
+El primer paso es separar los datos de entrenamiento en entrenamiento y validación, con 3/4 de los datos en el conjunto de entrenamiento. Luego, se crea un objeto de *receta* que contendrá todas las etapas del procesamiento deseadas. Esta receta se usará posteriormente para crear el dataset al que se ajustará un modelo de *random forest*, por ésto el nombre de `rf_recipe`. Después, se incorporan la imputación por la moda de `Embarked`, la transformación de la columna `Cabin`, la creación de la columna `Title` y la imputación con KNN de la columna `Age`. 
 
 Random forest no requiere preprocesamiento exhaustivo sobre los datos de entrenamiento, tales como transformaciones matemáticas (logaritmo de `Fare` o z-score de `Age`) y creación de variables dummy. Además, cabe destacar que `bake()` aplica las transformaciones de la receta a nuevos conjuntos de datos; si `new_data = NULL` entonces retorna los datos de entrenamientos transformados; si `new_data = titanic_test`, se aplican las transformaciones **calculadas sobre el conjunto de entrenamiento** para retornar el conjunto de prueba transformado, evitando así data leakage. 
 
@@ -234,7 +234,7 @@ titanic_folds <- vfold_cv(train_processed, v = 10)
 
 Los errores de entrenamiento y validación serán calculados para cada uno de los subconjuntos en `titanic_folds`, estimando el error de validación como la media de los 10 errores de validación parciales.
 
-Paralelamente, se declara la especificación del modelo de ranfom forests utilizando engine del paquete `ranger`, en *modo clasificación*. Los hiperparámetros a afinar se definen a continuación:
+Paralelamente, se declara la especificación del modelo de random forest utilizando engine del paquete `ranger`, en *modo clasificación*. Los hiperparámetros a afinar se definen a continuación:
 
 - **mtry**: un entero para el número de predictores que son muestreados aleatoriamente en cada separación al crear los modelos de árbol.
 
@@ -392,7 +392,7 @@ vip::vi(rf_fit_accuracy$fit$fit) %>%
        title = "¿Cuáles son las variables más importantes para el modelo?")
 ```
 
-De acuerdo al gráfico, `Sex` es la variable más importante. Esta importancia se calcula al momento de la construcción de los árboles del modelo, midiendo el desempeño de cada árbol en el conjunto *Out Of Bag* del bosque, pero alterando cada variable individual para el cómputo del error. De esta manera, las variables cuya perturbación produzca un mayor efecto en los errores, serán más importantes. Esta importancia se promedia entre todos los árboles del bosque.
+De acuerdo al gráfico, `Sex` es la variable más importante. Esta importancia se calcula al momento de la construcción de los árboles del modelo, midiendo el desempeño de cada árbol en el conjunto *Out Of Bag* del bosque, pero perturbando cada variable individual para el cómputo del error. De esta manera, las variables cuya perturbación produzca un mayor efecto en los errores, serán más importantes. Esta importancia se promedia entre todos los árboles del bosque.
 
 ```{r}
 train_processed %>% count(Sex, Survived) 
@@ -404,7 +404,7 @@ $$
 P(A\;|\;B) = \frac{P(A \; \bigcap \; B)}{P(B)} = \frac{176}{59 + 176} \approx 0.75.
 $$
 
-Así, la probabilidad de que una pasajero sobreviva, dado que es mujer, es del 75%. Análogamente, se puede calcular la probabilidad de sobrevivir dado que el pasajero es hombre.
+Así, la probabilidad de que una pasajera sobreviva, dado que es mujer, es del 75%. Análogamente, se puede calcular la probabilidad de sobrevivir dado que el pasajero es hombre.
 
 $$
 P(A \; | \; B^c) = \frac{P(A \; \bigcap \; B^c)}{P(B^c)} = \frac{80}{352 + 80} \approx 0.19.
@@ -445,7 +445,7 @@ train_processed %>%
        x = NULL, y = "Densidad")
 ```
 
-La distribución observada de `Age` según supervivencia es multimodal, centrada en torno a los 35 años. Por otra parte, la distribución de `Fare` para los pasajeros que sobreviveron presenta gran asimetría positiva, indicando que pagaron en general más por su ticket que aquellos que no sobrevivieron, cuya distribución se centra en torno a tickets más baratos. 
+La distribución observada de `Age` según supervivencia es multimodal, centrada en torno a los 35 años. Por otra parte, la distribución de `Fare` para los pasajeros que sobrevivieron presenta gran asimetría positiva, indicando que pagaron en general más por su ticket que aquellos que no sobrevivieron, cuya distribución se centra en torno a tickets más baratos. 
 
 Respecto a lo anterior cabe preguntarse, ¿qué distribuciones ha asumido el modelo para predecir supervivencia?
 
