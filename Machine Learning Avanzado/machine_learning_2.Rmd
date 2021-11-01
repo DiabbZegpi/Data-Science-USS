@@ -375,15 +375,42 @@ Se observa que ambos modelos tienden a sobreajustarse. La configuración para el
 
 En el gráfico anterior se aprecia que el mejor modelo (**Best Accuracy**) tiene buen desempeño cuando clasifica pasajeros que no sobrevivieron (specificity), pero empeora al clasificar pasajeros que sobrevivieron (sensitivity). Esto puede deberse al desbalance que existe entre las clases 0 y 1 del factor `Survived` en el conjunto de entrenamiento, que es 62% contra 38%, respectivamente. La manera común de palear este desbalance es usando técnicas de muestreo con reemplazo de la clase minoritaria (*upsampling*) o muestreo de la clase mayoritaria, con tamaño muestral igual a la clase minoritaria (*downsampling*). En este documento se mantendrá el modelo tal cual está.
 
-```{r echo=FALSE}
+A continuación, se analiza la importancia de las variables para la predicción de supervivencia de los pasajeros.
+
+```{r echo=FALSE, fig.width=9}
 vip::vi(rf_fit_accuracy$fit$fit) %>% 
   mutate(Variable = fct_reorder(Variable, Importance)) %>% 
   ggplot(aes(Importance, Variable)) +
   geom_col(fill = "#012626", alpha = .7) +
   labs(y = NULL, x = "Importancia", 
-       title = "¿Cuáles son las variables más importances para el modelo?")
+       title = "¿Cuáles son las variables más importantes para el modelo?")
 ```
 
+De acuerdo al gráfico, `Sex` es la variable más importante. Esta importancia se calcula al momento de la construcción de los árboles del modelo, midiendo el desempeño de cada árbol en el conjunto *Out Of Bag* del bosque, pero alterando cada variable individual para el cómputo del error. De esta manera, las variables cuya perturbación produzca un mayor efecto en los errores, serán más importantes. Esta importancia se promedia entre todos los árboles del bosque.
+
+```{r}
+train_processed %>% count(Sex, Survived) 
+```
+
+De acuerdo con los datos de entrenamiento preprocesados, se puede calcular la probabilidad de que una pasajera sobreviva al accidente como la probabilidad condicional sobre la frecuencias observadas de ser mujer y haber sobrevivido. Sea $A:P(Survived=1)$ y $B:P(Sex=female)$
+
+$$
+P(A\;|\;B) = \frac{P(A \; \bigcap \; B)}{P(B)} = \frac{176}{59 + 176} \approx 0.75.
+$$
+
+Así, la probabilidad de que una pasajero sobreviva, dado que es mujer, es del 75%. Análogamente, se puede calcular la probabilidad de sobrevivir dado que el pasajero es hombre.
+
+$$
+P(A \; | \; B^c) = \frac{P(A \; \bigcap \; B^c)}{P(B^c)} = \frac{80}{352 + 80} \approx 0.19.
+$$
+
+Se observa que la probabilidad de que un pasajero hombre sobreviva es del 19%. Así, el modelo puede alcanzar una exactitud del 75% prediciendo que el pasajero sobrevive cuando es mujer, y 81% prediciendo que el pasajero no sobrevive cuando éste es hombre.
+
+Con menos importancia pero aún relevantes, siguen las variables `Fare`, `Title` y `Age`. Comenzando con el título 
+
+```{r}
+train_processed %>% count(Title, Survived) 
+```
 
 
 
