@@ -1,6 +1,10 @@
 ---
 title: "Taller 2 de Machine Learning Avanzado"
-author: "Zegpi D., Diabb"
+author: 
+  - Araneda F., Marcela
+  - Reyes G., Álvaro
+  - Sepúlveda M., Danilo
+  - Zegpi D., Diabb
 output: 
   html_document:
     theme: united
@@ -296,6 +300,8 @@ rf_res <- read_rds(file = here("Machine Learning Avanzado", "rf_res_titanic.rds"
 
 La combinación de hiperparámetros que optimiza accuracy resultó ser trees: 799, mtry: 4 y min_n: 22. Esta combinación alcanzó un accuracy estimado de 0.846, con un error estándar estimado de 0.0169. Paralelamente, el área media bajo la curva ROC estimada es 0.889, con error estándar de 0.0156.
 
+> Observación: las métricas de la matriz de confusión son computadas con un umbral de clasificación de 0.50.
+
 ```{r echo=FALSE, fig.width=11}
 collect_metrics(rf_res) %>% 
   filter(.metric == "accuracy") %>% 
@@ -458,6 +464,15 @@ bind_cols(val_processed, predict(rf_fit_accuracy, val_processed)) %>%
 
 Interesantemente, ambas variables son menos asimétricas que en el conjunto de entrenamiento, pero sigue existiendo gran solapamiento entre las clases de supervivencia. Queda claro que el modelo aprendió que los pasajeros sobre 60 años tuvieron menos chances de sobrevivir. Al contrario, aquellos pasajeros que pagaron altas tarifas probablemente sobrevivieron.
 
+### Predicción del conjunto de prueba
+
+Previamente, se analizaron las cuatro variables más importantes para el modelo de clasificación de random forest. Ahora, se realizará la predicción para el conjunto de prueba, junto con la escritura de los resultados en formato csv.
+
+```{r eval=FALSE}
+bind_cols(test_processed, predict(rf_fit_accuracy, test_processed)) %>% 
+  select(PassengerId, Survived = .pred_class) %>% 
+  write_csv(file = here("Machine Learning Avanzado", "titanic_test_pred.csv"))
+```
 
 
 
