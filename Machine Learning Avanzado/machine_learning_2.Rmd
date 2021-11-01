@@ -434,12 +434,29 @@ train_processed %>%
   geom_density(show.legend = FALSE, alpha = .4) +
   scale_fill_manual(values = c("#a92759", "#018666")) +
   facet_wrap(~name, scales = "free_x") +
-  labs(title = "Discriminar pasajeros de acuerdo a variables numéricas<br><b style='color:#018666;'>sobrevivió</b> o <b style='color:#a92759;'>no sobrevivió</b>",
+  labs(title = "Conjunto de entrenamiento: distribución de <i>Age</i> y <i>Fare</i>",
+       subtitle = "Pasajeros que <b style='color:#018666;'>sobrevivieron</b> o <b style='color:#a92759;'>no sobrevivieron</b>",
        x = NULL, y = "Densidad")
 ```
 
+La distribución observada de `Age` según supervivencia es multimodal, centrada en torno a los 35 años. Por otra parte, la distribución de `Fare` para los pasajeros que sobreviveron presenta gran asimetría positiva, indicando que pagaron en general más por su ticket que aquellos que no sobrevivieron, cuya distribución se centra en torno a tickets más baratos. 
 
+Respecto a lo anterior cabe preguntarse, ¿qué distribuciones ha asumido el modelo para predecir supervivencia?
 
+```{r echo=FALSE, fig.width=9}
+bind_cols(val_processed, predict(rf_fit_accuracy, val_processed)) %>% 
+  select(Fare, Age, .pred_class) %>% 
+  pivot_longer(-.pred_class) %>% 
+  ggplot(aes(value, fill = .pred_class)) +
+  geom_density(show.legend = FALSE, alpha = .4) +
+  scale_fill_manual(values = c("#a92759", "#018666")) +
+  facet_wrap(~name, scales = "free_x") +
+  labs(title = "Conjunto de validación: <i>Age</i> y <i>Fare</i>", 
+       subtitle = "Predicción de pasajeros que <b style='color:#018666;'>sobrevivieron</b> o <b style='color:#a92759;'>no sobrevivieron</b>",
+       x = NULL, y = "Densidad")
+```
+
+Interesantemente, ambas variables son menos asimétricas que en el conjunto de entrenamiento, pero sigue existiendo gran solapamiento entre las clases de supervivencia. Queda claro que el modelo aprendió que los pasajeros sobre 60 años tuvieron menos chances de sobrevivir. Al contrario, aquellos pasajeros que pagaron altas tarifas probablemente sobrevivieron.
 
 
 
