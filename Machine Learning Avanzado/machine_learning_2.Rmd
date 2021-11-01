@@ -87,7 +87,7 @@ theme_update(
   plot.background = element_rect(fill = "#fff9fa", color = "transparent"),
   panel.background = element_rect(fill = "#eeeeee"),
   text = element_text(color = "#111111"),
-  plot.title = element_text(hjust = .5),
+  plot.title = element_markdown(hjust = .5),
   plot.subtitle = element_markdown(hjust = .5),
   strip.background = element_rect(fill = "#fff9fa"),
   strip.text = element_text(color = "#111111", face = "italic", size = "16")
@@ -419,11 +419,24 @@ train_processed %>%
          joint_prob = n / sum(total_n),
          conditional_prob = joint_prob / B_prob) %>% 
   select(Title, conditional_prob) %>% 
-  pivot_wider(names_from = Title, values_from = conditional_prob)
+  pivot_wider(names_from = Title, values_from = conditional_prob) 
 ```
 
+Evidentemente, los pasajeros con título Miss y Mrs, todas mujeres, tienen alta probabilidad de sobrevivir. Es interesante observar que los pasajeros de título Master (niños de hasta 12 años) tienen una probabilidad mucho más alta de sobrevivir respecto de los varones con más de 12 años.
 
+Posteriormente, se analizan las distribuciones de `Fare` y `Age` para ver cómo influyen en la supervivencia de los pasajeros. 
 
+```{r echo=FALSE, fig.width=9}
+train_processed %>% 
+  select(Fare, Age, Survived) %>% 
+  pivot_longer(-Survived) %>% 
+  ggplot(aes(value, fill = Survived)) +
+  geom_density(show.legend = FALSE, alpha = .4) +
+  scale_fill_manual(values = c("#a92759", "#018666")) +
+  facet_wrap(~name, scales = "free_x") +
+  labs(title = "Discriminar pasajeros de acuerdo a variables numéricas<br><b style='color:#018666;'>sobrevivió</b> o <b style='color:#a92759;'>no sobrevivió</b>",
+       x = NULL, y = "Densidad")
+```
 
 
 
