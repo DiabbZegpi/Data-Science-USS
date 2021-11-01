@@ -493,21 +493,22 @@ P(A\;|\;B) = \frac{P(A \; \bigcap \; B)}{P(B)} = \frac{176}{59 + 176} \approx 0.
 P(A \; | \; B^c) = \frac{P(A \; \bigcap \; B^c)}{P(B^c)} = \frac{80}{352 + 80} \approx 0.19.
 \]</span></p>
 <p>Se observa que la probabilidad de que un pasajero hombre sobreviva es del 19%. Así, el modelo puede alcanzar una exactitud del 75% prediciendo que el pasajero sobrevive cuando es mujer, y 81% prediciendo que el pasajero no sobrevive cuando éste es hombre.</p>
-<p>Con menos importancia pero aún relevantes, siguen las variables <code>Fare</code>, <code>Title</code> y <code>Age</code>. Comenzando con el título</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>train_processed <span class="sc">%&gt;%</span> <span class="fu">count</span>(Title, Survived) </span></code></pre></div>
-<pre class="purple-output"><code>## # A tibble: 10 x 3
-##    Title    Survived     n
-##    &lt;fct&gt;    &lt;fct&gt;    &lt;int&gt;
-##  1 &quot;Master&quot; 0           12
-##  2 &quot;Master&quot; 1           17
-##  3 &quot;Miss&quot;   0           37
-##  4 &quot;Miss&quot;   1          102
-##  5 &quot;Mr &quot;    0          328
-##  6 &quot;Mr &quot;    1           60
-##  7 &quot;Mrs&quot;    0           22
-##  8 &quot;Mrs&quot;    1           69
-##  9 &quot;Other&quot;  0           12
-## 10 &quot;Other&quot;  1            8</code></pre>
+<p>El mismo análisis puede llevarse a cabo con <code>Title</code>, al calcular la probabilidad condicional de supervivencia dado que el pasajero tiene un título determinado.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>train_processed <span class="sc">%&gt;%</span> </span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(Title, Survived) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(Title) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">add_count</span>(<span class="at">wt =</span> n, <span class="at">name =</span> <span class="st">&quot;total_n&quot;</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>() <span class="sc">%&gt;%</span> </span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(Survived <span class="sc">==</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">B_prob =</span> total_n <span class="sc">/</span> <span class="fu">sum</span>(total_n),</span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>         <span class="at">joint_prob =</span> n <span class="sc">/</span> <span class="fu">sum</span>(total_n),</span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">conditional_prob =</span> joint_prob <span class="sc">/</span> B_prob) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(Title, conditional_prob) <span class="sc">%&gt;%</span> </span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> Title, <span class="at">values_from =</span> conditional_prob)</span></code></pre></div>
+<pre class="purple-output"><code>## # A tibble: 1 x 5
+##   Master  Miss `Mr `   Mrs Other
+##    &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt;
+## 1  0.586 0.734 0.155 0.758   0.4</code></pre>
 </div>
 
 

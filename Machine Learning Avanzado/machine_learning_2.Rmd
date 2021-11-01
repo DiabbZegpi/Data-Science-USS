@@ -406,10 +406,20 @@ $$
 
 Se observa que la probabilidad de que un pasajero hombre sobreviva es del 19%. Así, el modelo puede alcanzar una exactitud del 75% prediciendo que el pasajero sobrevive cuando es mujer, y 81% prediciendo que el pasajero no sobrevive cuando éste es hombre.
 
-Con menos importancia pero aún relevantes, siguen las variables `Fare`, `Title` y `Age`. Comenzando con el título 
+El mismo análisis puede llevarse a cabo con `Title`, al calcular la probabilidad condicional de supervivencia dado que el pasajero tiene un título determinado. 
 
 ```{r}
-train_processed %>% count(Title, Survived) 
+train_processed %>% 
+  count(Title, Survived) %>% 
+  group_by(Title) %>% 
+  add_count(wt = n, name = "total_n") %>% 
+  ungroup() %>% 
+  filter(Survived == 1) %>% 
+  mutate(B_prob = total_n / sum(total_n),
+         joint_prob = n / sum(total_n),
+         conditional_prob = joint_prob / B_prob) %>% 
+  select(Title, conditional_prob) %>% 
+  pivot_wider(names_from = Title, values_from = conditional_prob)
 ```
 
 
