@@ -83,6 +83,9 @@ clean_data <-
   data_to_impute %>% 
   left_join(imputed_model_year, by = "id") %>% 
   mutate(MODEL_YEAR = if_else(is.na(MODEL_YEAR), model_year, MODEL_YEAR)) %>% 
-  select(-c(model_year, id)) 
+  select(-c(model_year, id)) %>% 
+  # Create date column
+  mutate(DATE = paste(REPORTED_YEAR, REPORTED_MONTH, "01", sep = "-"),
+         DATE = as.Date(DATE))
 
 write_csv(clean_data, file = here("Big Data", "Data", "clean_data.csv"))
