@@ -71,7 +71,7 @@ density_labs <-
   tibble(
     label = c("El 50% de los conductores que están registrados<br>en <b style='color:#7030A0;'>una sola TNPS</b> tienen menos de 192 viajes al mes",
               "En cambio, el 50% de los conductore con<br><b style='color:#51032d;'>múltiples TNPS</b> tienen al menos 237 viajes mensuales"),
-    x = c(410, 500),
+    x = c(440, 500),
     y = c(.005, .0035)
   )
 
@@ -80,6 +80,10 @@ clean_data %>%
   geom_density(show.legend = FALSE, alpha = .5) + 
   scale_fill_manual(values = c("#7030A0", "#51032d")) +
   geom_richtext(data = density_labs, inherit.aes = FALSE,
-                aes(x = x, y = y, label = label), size = 5, label.color = NA, fill = NA) +
-  labs(title = "Comparación de estrategias:  versus ",
+                aes(x = x, y = y, label = label), size = 5.5, label.color = NA, fill = NA) +
+  annotate(geom = "segment", x = 192, xend = 240, y = .0035, yend = .0045, color = "#7030A0", size = 1) +
+  annotate(geom = "segment", x = 180, xend = 700, y = .0045, yend = .0045, color = "#7030A0", size = 1) +
+  annotate(geom = "segment", x = 237, xend = 340, y = .0015, yend = .0030, color = "#51032d", size = 1) +
+  annotate(geom = "segment", x = 240, xend = 760, y = .0030, yend = .0030, color = "#51032d", size = 1) +
+  labs(title = "Densidad del número de viajes mensuales según estrategia",
        x = "Número de viajes", y = "Densidad")
