@@ -37,3 +37,9 @@ clean_data %>%
   scale_x_date(date_breaks = "6 months", date_labels = "%m-%Y") +
   labs(title = "Número de viajes de TPNS en Chicago",
        x = NULL, y = "Número de viajes")
+
+clean_data %>% 
+  count(REPORTED_YEAR, COLOR, sort = TRUE, wt = NUMBER_OF_TRIPS, name = "n_trips") %>% 
+  group_by(REPORTED_YEAR) %>%
+  slice_max(n_trips, n = 5) %>%   
+  mutate(pct = n_trips / sum(n_trips)) 
