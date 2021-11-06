@@ -35,7 +35,7 @@ clean_data %>%
   geom_smooth(method = "loess", formula = y ~ x, alpha = .5, color = "#b898d0", fill = "#b898d0") +
   scale_y_continuous(labels = number_format()) +
   scale_x_date(date_breaks = "6 months", date_labels = "%m-%Y") +
-  labs(title = "Número de viajes de TPNS en Chicago",
+  labs(title = "Número de viajes de TNPS en Chicago",
        x = NULL, y = "Número de viajes")
 
 color_popularity <- 
@@ -66,3 +66,20 @@ color_popularity %>%
   labs(title = "Los 5 colores más populares por año",
        subtitle = "Cada año, los 5 colores más populares concentraron más del 83% de los viajes",
        x = NULL, y = NULL)
+
+density_labs <- 
+  tibble(
+    label = c("El 50% de los conductores que están registrados<br>en <b style='color:#7030A0;'>una sola TNPS</b> tienen menos de 192 viajes al mes",
+              "En cambio, el 50% de los conductore con<br><b style='color:#51032d;'>múltiples TNPS</b> tienen al menos 237 viajes mensuales"),
+    x = c(410, 500),
+    y = c(.005, .0035)
+  )
+
+clean_data %>% 
+  ggplot(aes(NUMBER_OF_TRIPS, fill = MULTIPLE_TNPS)) +
+  geom_density(show.legend = FALSE, alpha = .5) + 
+  scale_fill_manual(values = c("#7030A0", "#51032d")) +
+  geom_richtext(data = density_labs, inherit.aes = FALSE,
+                aes(x = x, y = y, label = label), size = 5, label.color = NA, fill = NA) +
+  labs(title = "Comparación de estrategias:  versus ",
+       x = "Número de viajes", y = "Densidad")
