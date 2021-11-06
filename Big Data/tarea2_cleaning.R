@@ -14,6 +14,7 @@ ridesharing %>% skimr::skim()
 # COLOR cleaning: remove non-letter or non-spaces
 # Filter out 'Name' and '0' 
 # Remove `NA`
+# Uniform grey
 
 clean_color_make <- 
   ridesharing %>% 
