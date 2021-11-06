@@ -38,8 +38,31 @@ clean_data %>%
   labs(title = "Número de viajes de TPNS en Chicago",
        x = NULL, y = "Número de viajes")
 
-clean_data %>% 
+color_popularity <- 
+  clean_data %>% 
   count(REPORTED_YEAR, COLOR, sort = TRUE, wt = NUMBER_OF_TRIPS, name = "n_trips") %>% 
   group_by(REPORTED_YEAR) %>%
   slice_max(n_trips, n = 5) %>%   
-  mutate(pct = n_trips / sum(n_trips)) 
+  mutate(pct = n_trips / sum(n_trips)) %>% 
+  ungroup()
+
+popularity_labs <- clean_data %>% 
+  count(REPORTED_YEAR, COLOR, sort = TRUE, wt = NUMBER_OF_TRIPS, name = "n_trips") %>% 
+  group_by(REPORTED_YEAR) %>%
+  mutate(pct = n_trips / sum(n_trips)) %>% 
+  slice_max(n_trips, n = 5) %>% 
+  summarise(pct = paste0(round(sum(pct) * 100), "%"))
+
+color_popularity %>% 
+  ggplot(aes(factor(REPORTED_YEAR), pct, fill = COLOR)) +
+  geom_col(color = "black", alpha = .8, size = 1, show.legend = FALSE) +
+  geom_text(data = popularity_labs, aes(x = factor(REPORTED_YEAR), y = 1.05, label = pct),
+            inherit.aes = FALSE, size = 7, family = "Amasis MT Std") +
+  scale_fill_manual(values = c(
+    "Black" = "#111111", "Blue" = "dodgerblue4", "Dark Red" = "firebrick",
+    "Grey" = "grey40", "Red" = "red", "Silver" = "#C0C0C0", "White" = "white"
+  )) +
+  scale_y_continuous(labels = NULL) +
+  labs(title = "Los 5 colores más populares por año",
+       subtitle = "Cada año, los 5 colores más populares concentraron más del 83% de los viajes",
+       x = NULL, y = NULL)
