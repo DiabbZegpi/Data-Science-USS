@@ -1,4 +1,5 @@
 library(tidyverse)
+library(tidymodels)
 library(here)
 
 ridesharing <- read_csv(file = here("Big Data", "Data", "chicago-ridesharing-vehicles.csv"))
@@ -14,7 +15,8 @@ ridesharing %>% skimr::skim()
 # Filter out 'Name' and '0' 
 # Remove `NA`
 
-clean_color_make <- ridesharing %>% 
+clean_color_make <- 
+  ridesharing %>% 
   mutate(COLOR = str_extract(COLOR, "\\w+(\\s*\\w*)*")) %>% 
   filter(!COLOR %in% c("Name", "0") & !is.na(COLOR)) %>% 
 
@@ -58,5 +60,29 @@ clean_data <-
   left_join(clean_class, by = c("MAKE", "MODEL")) %>% 
   mutate(MODEL = if_else(!is.na(model), model, MODEL)) %>% 
   select(-model)
+
+# MODEL_YEAR cleaning: impute missing values (vehicles with MODEL_YEAR minor than 1990)
+data_to_impute <- 
+  clean_data %>% 
+  mutate(MODEL_YEAR = if_else(MODEL_YEAR < 1990, NA_real_, MODEL_YEAR),
+         MODEL_YEAR = as.integer(MODEL_YEAR),
+         id = row_number())
+
+knn_recipe <- 
+  recipe(~ ., data = data_to_impute) %>% 
+  step_other(MODEL, threshold = 500) %>% 
+  step_impute_knn(MODEL_YEAR, impute_with = c("MAKE", "MODEL", "COLOR", "NUMBER_OF_TRIPS"), 
+                  neighbors = 10)
+  
+imputed_model_year <- knn_recipe %>% 
+  prep() %>% 
+  bake(new_data = NULL) %>% 
+  select(id, model_year = MODEL_YEAR)
+
+clean_data <- 
+  data_to_impute %>% 
+  left_join(imputed_model_year, by = "id") %>% 
+  mutate(MODEL_YEAR = if_else(is.na(MODEL_YEAR), model_year, MODEL_YEAR)) %>% 
+  select(-c(model_year, id)) 
 
 write_csv(clean_data, file = here("Big Data", "Data", "clean_data.csv"))
