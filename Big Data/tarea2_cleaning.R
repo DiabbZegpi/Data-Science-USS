@@ -17,7 +17,9 @@ ridesharing %>% skimr::skim()
 
 clean_color_make <- 
   ridesharing %>% 
-  mutate(COLOR = str_extract(COLOR, "\\w+(\\s*\\w*)*")) %>% 
+  mutate(COLOR = str_extract(COLOR, "\\w+(\\s*\\w*)*"),
+         COLOR = str_replace(COLOR, "Gray", "Grey"),
+         COLOR = str_replace(COLOR, "gray", "grey")) %>% 
   filter(!COLOR %in% c("Name", "0") & !is.na(COLOR)) %>% 
 
 # MAKE cleaning  
