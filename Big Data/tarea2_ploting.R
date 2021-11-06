@@ -70,7 +70,7 @@ color_popularity %>%
 density_labs <- 
   tibble(
     label = c("El 50% de los conductores que están registrados<br>en <b style='color:#7030A0;'>una sola TNPS</b> tienen menos de 192 viajes al mes",
-              "En cambio, el 50% de los conductore con<br><b style='color:#51032d;'>múltiples TNPS</b> tienen al menos 237 viajes mensuales"),
+              "En cambio, el 50% de los conductores con<br><b style='color:#51032d;'>múltiples TNPS</b> tienen al menos 237 viajes mensuales"),
     x = c(440, 500),
     y = c(.005, .0035)
   )
