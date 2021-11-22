@@ -1,0 +1,149 @@
+---
+title: "Taller 3 de Machine Learning Avanzado"
+author: 
+  - Araneda F., Marcela
+  - Reyes G., Álvaro
+  - Sepúlveda M., Danilo
+  - Zegpi D., Diabb
+output: 
+  html_document:
+    theme: united
+    highlight: kate
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+ragg_png = function(..., res = 500) {
+  ragg::agg_png(..., res = res, units = "in")
+}
+
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  class.output = "purple-output",
+  dev = "ragg_png", 
+  fig.align = "center"
+)
+```
+
+<style>
+  body {
+    font-size: 16px;
+    background-color: #fff9fa;
+  }
+  
+  pre {
+    border: 0px;
+  }
+
+  .sourceCode, code {
+    font-family: 'Fira Mono';
+  }
+  
+  code {
+    background-color: #e5eeeb;
+    color: #111;
+  }
+  
+  pre.sourceCode {
+    color: #111;
+    font-weight: 500;
+    background-color: #e5eeeb;
+  }
+  
+  code span.fu {
+    color: #0e4747;
+    font-weight: 600;
+  }
+  
+  code span.sc {
+    color: #ae4d00;
+    font-weight: 600;
+  }
+  
+  code span.st {
+    color: #ae4d00;
+  }
+  
+  .purple-output{
+    background-color: #012626;
+    color: #eee;
+  }
+</style>
+
+
+```{r warning=FALSE, message=FALSE}
+# Dependencias 
+# install.packages(c("tidyverse", "tidymodels","here", "janitor", reticulate", "keras"))
+
+library(tidyverse)
+library(tidymodels)
+library(here)
+startup_raw <- read_csv(file = here("Machine Learning Avanzado", "startup data.csv")) %>% 
+  janitor::clean_names()
+```
+
+
+```{r echo=FALSE}
+library(ggtext)
+theme_set(theme_light(base_family = "Segoe UI", base_size = 16))
+theme_update(
+  plot.background = element_rect(fill = "#fff9fa", color = "transparent"),
+  panel.background = element_rect(fill = "#eeeeee"),
+  text = element_text(color = "#111111"),
+  plot.title = element_markdown(hjust = .5),
+  plot.subtitle = element_markdown(hjust = .5),
+  strip.background = element_rect(fill = "#fff9fa"),
+  strip.text = element_text(color = "#111111", face = "italic", size = "16")
+)
+```
+
+
+El dataset `startup` registra información de empresas emergentes (startups) en Estados Unidos. En total, contiene 923 filas y 49 columnas. Cada fila representa a una startup y cada columna a una característica de ésta. Inicialmente, hay muchas columnas que pueden ser construidos a partir de éstas, causando así duplicidad de datos. Por tanto, el primer análisis consistirá en determinar cuáles columnas pueden ser excluidas del dataset sin perder información relevante.  
+
+
+```{r}
+startup <- startup_raw %>% 
+  select(-c(unnamed_0, zip_code, id, unnamed_6, labels, state_code_1, object_id),
+         -starts_with("is_")) 
+
+colnames(startup)
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+colnames(startup)[30:38]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
