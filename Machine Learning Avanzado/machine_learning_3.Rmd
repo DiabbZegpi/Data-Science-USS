@@ -104,28 +104,70 @@ El dataset `startup` registra información de empresas emergentes (startups) en 
 
 ```{r}
 startup <- startup_raw %>% 
-  select(-c(unnamed_0, zip_code, id, unnamed_6, labels, state_code_1, object_id),
+  select(-c(unnamed_0, zip_code, id, unnamed_6, labels, closed_at, state_code_1, object_id),
          -starts_with("is_")) 
 
 colnames(startup)
 ```
 
 
+```{r}
+skimr::skim(startup)
+```
 
-
-
-
-
-
+El dataset resultante tiene `ncol(startup)` columnas, `select(startup, where(is.character)) %>% ncol()` de las cuales son categóricas y las demás son numéricas. De las columnas categóricas, 3 corresponden a fechas, por lo que se procede a adaptarlas.
 
 
 ```{r}
-colnames(startup)[30:38]
+startup <- startup %>% 
+  mutate(across(
+    matches("fo?und") & where(is.character),
+    function(x) as.Date(x, format = "%m/%d/%Y")            
+  )) 
 ```
 
 
+A continuación, se exploran descriptivamente todas las variables, de acuerdo con us tipo de dato.
+
+### Variables categóricas
+- No hay *missing data* en las columnas categóricas. 
+- Las empresas provienen de 35 estados; el 52,9% es de California (CA).
+- En total son 221 ciudades. San Francisco tiene la primera mayoría (13,9%).
+- Las startups se dedican a 35 rubros. Las dos grandes mayorías son software (16,6%) y web (15,6%).
+- Existe desequilibrio entre las dos clases de la variable objetivo `status`: acquired (64,7%) y closed (35,3%).
 
 
+### Variables fecha
+- Las empresas fueron fundadas entre el 1 de enero de 1984 y el 16 de abirl de 2013.
+- Todas las empresas obtuvieron su primer financiamiento entre enero del 2000 y noviembre del 2013.
+- Todas las empresas obtuvieron su último financiamiento entre enero del 2001 y noviembre del 2013.
+
+
+## Variables numéricas
+- 
+
+```{r}
+skimr::skim(startup)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(maps)
+main_states <- map_data("state")
+ggplot() +
+  geom_polygon(data = main_states, aes(long, lat, group = group),
+               fill = "#012626", color = "white", size = .1) +
+  geom_point(data = startup, aes(longitude, latitude),
+             inherit.aes = FALSE, fill = "gold3", size = 5, 
+             alpha = .4, shape = 21, color = "gray30", stroke = 1) +
+  coord_cartesian(xlim = c(-130, -65), ylim = c(23, 55)) +
+  theme_void()
+```
+
+
+```{r}
+startup %>% slice_max(latitude, n = 4) %>% select(state_code, city, longitude, latitude)
+```
 
 
 
