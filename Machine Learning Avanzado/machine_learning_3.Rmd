@@ -144,11 +144,7 @@ A continuación, se exploran descriptivamente todas las variables, de acuerdo co
 
 
 ## Variables numéricas
-- 
-
-```{r}
-skimr::skim(startup)
-```
+- La antigüedad de la empresa hasta su primer y último
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -165,8 +161,11 @@ ggplot() +
 ```
 
 
+El mapa superior muestra las empresas registradas en USA. Solamente hay 4 empresas fuera de USA: Xelerated en el Mar Arábigo (Sureste de Omán), Moli, DiJiPOP y Tracelytics, las tres en el Océano Índico, al Este de Somalia. Por supuesto, las cuatro empresas se encuentran adscritas a ciudades estadounidenses, por lo que sus coordenadas son susceptibles a imputación. 
+
+
 ```{r}
-startup %>% slice_max(latitude, n = 4) %>% select(state_code, city, longitude, latitude)
+startup %>% slice_max(latitude, n = 4) %>% select(state_code, city, longitude, latitude, name)
 ```
 
 
