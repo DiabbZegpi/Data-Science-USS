@@ -111,10 +111,6 @@ colnames(startup)
 ```
 
 
-```{r}
-skimr::skim(startup)
-```
-
 El dataset resultante tiene `ncol(startup)` columnas, `select(startup, where(is.character)) %>% ncol()` de las cuales son categóricas y las demás son numéricas. De las columnas categóricas, 3 corresponden a fechas, por lo que se procede a adaptarlas.
 
 
@@ -156,19 +152,78 @@ ggplot() +
   geom_point(data = startup, aes(longitude, latitude),
              inherit.aes = FALSE, fill = "gold3", size = 5, 
              alpha = .4, shape = 21, color = "gray30", stroke = 1) +
-  coord_cartesian(xlim = c(-130, -65), ylim = c(23, 55)) +
+  coord_cartesian(xlim = c(-125, -69), ylim = c(25, 50)) +
   theme_void()
 ```
 
 
-El mapa superior muestra las empresas registradas en USA. Solamente hay 4 empresas fuera de USA: Xelerated en el Mar Arábigo (Sureste de Omán), Moli, DiJiPOP y Tracelytics, las tres en el Océano Índico, al Este de Somalia. Por supuesto, las cuatro empresas se encuentran adscritas a ciudades estadounidenses, por lo que sus coordenadas son susceptibles a imputación. 
+El mapa superior muestra las empresas registradas en USA. Solamente hay 4 empresas fuera de USA: Xelerated en el Mar Arábigo (Sureste de Omán), Moli, DiJiPOP y Tracelytics, las tres en el Océano Índico, al Este de Somalia. Por supuesto, las cuatro empresas se encuentran adscritas a ciudades estadounidenses, por lo que sus coordenadas son susceptibles a imputación. Las demás variables numéricas se describen a continuación:
+
+- Los rangos de las variables de antigüedad de las empresas hasta su primer o último financiamiento e hito incluyen números negativos. Esto se interpreta como factible.
+- La antigüedad de las empresas hasta su primer y último hito tiene missing data. Se detecta dependencia entre estas variables y el *status* de las empresas.
+- Las correlaciones entre las variables numéricas se muestran en la matriz de correlación.
 
 
 ```{r}
-startup %>% slice_max(latitude, n = 4) %>% select(state_code, city, longitude, latitude, name)
+corm <-
+  startup %>%
+  select(where(is.numeric), -starts_with("has_"), -milestones) %>%
+  corrr::correlate(diagonal = 1) %>%
+  corrr::shave(upper = FALSE)
+
+corm <- corm %>%
+  pivot_longer(
+    cols = -term,
+    names_to = "colname",
+    values_to = "corr"
+  ) %>%
+  mutate(rowname = fct_inorder(term),
+         colname = fct_inorder(colname))
+
+
+corr_labs <- unique(corm$rowname)
+
+
+ggplot(corm, aes(rowname, fct_rev(colname), fill = corr)) +
+  geom_tile() +
+  geom_text(aes(
+    label = format(round(corr, 2), nsmall = 2),
+    color = abs(corr) < .4
+  )) +
+  scale_color_manual(values = c("white", "black"), guide = "none") +
+  scale_fill_gradient2(
+    low = "#e5eeeb", mid = "#e5eeeb", high = "#012626", na.value = "white",
+    limits = c(-1, 1) 
+  ) +
+  scale_x_discrete(labels = ifelse(str_count(corr_labs) > 10, 
+                            str_remove_all(corr_labs, "[aeiou]"), 
+                            as.character(corr_labs))) +
+  labs(x = NULL, y = NULL, fill = expression(rho)) +
+  coord_fixed() +
+  theme(panel.border = element_rect(color = NA, fill = NA),
+        axis.text.x = element_text(angle = 90),
+        legend.background = element_rect(fill = "#fff9fa"),
+        legend.title = element_text(hjust = .1),
+        legend.text.align = 1)
 ```
 
 
+
+```{r}
+outliers <- startup %>% 
+  slice_max(latitude, n = 4) %>% 
+  pull(name)
+
+startup %>% 
+  mutate(latitude = if_else(name %in% outliers, NA_real_, latitude),
+         longitude = if_else(name %in% outliers, NA_real_, longitude)) %>% 
+  filter(name %in% outliers)
+```
+
+
+```{r}
+skimr::skim(startup)
+```
 
 
 
