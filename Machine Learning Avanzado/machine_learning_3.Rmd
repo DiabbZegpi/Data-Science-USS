@@ -131,6 +131,7 @@ A continuación, se exploran descriptivamente todas las variables, de acuerdo co
 - En total son 221 ciudades. San Francisco tiene la primera mayoría (13,9%).
 - Las startups se dedican a 35 rubros. Las dos grandes mayorías son software (16,6%) y web (15,6%).
 - Existe desequilibrio entre las dos clases de la variable objetivo `status`: acquired (64,7%) y closed (35,3%).
+- Las columnas `has_` *vc*, *angel*, *round_{a, b, c, d}* son variables dummy no mutuamente excluyentes.
 
 
 ### Variables fecha
@@ -210,16 +211,40 @@ ggplot(corm, aes(rowname, fct_rev(colname), fill = corr)) +
         axis.ticks = element_blank())
 ```
 
+Se observa correlación moderada-alta entre la antigüedad de la startup en su primer y último financiamiento. Esta correlación indica que el tiempo que transcurre entre ambos eventos cambia varía en forma lineal de empresa en empresa. A su vez, las variables mencionadas se correlacionan moderadamente con la antigüedad de la empresa en su primer/último hito.
+
+Se estima que no hay correlaciones suficientemente altas entre los predictores, por ende, no se elimina ninguno del dataset. A continuación, se imputan los valores de latitud y longitud de las empresas ubicadas en el Mar Arábigo, con la media de sus vecinos más cercanos, utilizando las columnas `state_code`, `city` y `category_code`.
+
 
 ```{r}
 outliers <- startup %>% 
   slice_max(latitude, n = 4) %>% 
   pull(name)
 
-startup %>% 
+startup_to_impute <- startup %>% 
   mutate(latitude = if_else(name %in% outliers, NA_real_, latitude),
-         longitude = if_else(name %in% outliers, NA_real_, longitude)) %>% 
-  filter(name %in% outliers)
+         longitude = if_else(name %in% outliers, NA_real_, longitude))
+
+
+impute_recipe <- recipe(~ ., data = startup_to_impute) %>% 
+  update_role(name, new_role = "id") %>% 
+  step_other(state_code, threshold = 10) %>% 
+  step_other(city, threshold = 10) %>% 
+  step_other(category_code, threshold = 10, other = "Other") %>% 
+  step_impute_knn(longitude, impute_with = c("state_code", "city", "category_code")) %>% 
+  step_impute_knn(latitude, impute_with = c("state_code", "city", "category_code"))
+
+imputed_values <- impute_recipe %>% 
+  prep() %>% 
+  bake(new_data = NULL) %>% 
+  filter(name %in% outliers) %>% 
+  select(lat = latitude, long = longitude, name)
+
+startup_imputed <- startup_to_impute %>% 
+  left_join(imputed_values, by = "name") %>% 
+  mutate(latitude = if_else(is.na(latitude), lat, latitude),
+         longitude = if_else(is.na(longitude), long, longitude)) %>% 
+  select(-c(lat, long))
 ```
 
 
