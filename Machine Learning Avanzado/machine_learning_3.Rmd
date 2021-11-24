@@ -249,6 +249,16 @@ startup_imputed <- startup_to_impute %>%
 
 
 ```{r}
+startup_imputed %>% 
+  select(where(anyNA)) %>% 
+  pivot_longer(cols = everything()) %>% 
+  ggplot(aes(value)) +
+  geom_histogram(bins = 15) +
+  facet_wrap(~name)
+```
+
+
+```{r}
 skimr::skim(startup)
 ```
 
