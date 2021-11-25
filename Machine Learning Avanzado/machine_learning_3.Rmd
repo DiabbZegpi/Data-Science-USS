@@ -306,9 +306,15 @@ preprocessing <- recipe(status ~ ., data = startup_train) %>%
 ```
 
 
+## Entrenamiento de red neuronal 1
+
+Lo primero es crear una especificación de modelo de red neuronal, en este caso, de una sola capa. El hiperparámetro a optimizar es la cantidad de perceptrones en la capa oculta, denotado por el argumento `hidden_units = tune()`. Esta configuración, por defecto, especifica que se entrenará la red con una grilla de 10 valores, entre 1 y 10, para la cantidad de unidades ocultas.
+
 
 ```{r}
-skimr::skim(startup)
+neural_net_1 <- mlp(hidden_units = tune()) %>% 
+  set_mode("classification") %>% 
+  set_engine("keras")
 ```
 
 
