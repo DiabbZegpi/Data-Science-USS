@@ -217,6 +217,8 @@ Se observa correlación moderada-alta entre la antigüedad de la startup en su p
 
 Se estima que no hay correlaciones suficientemente altas entre los predictores, por ende, no se elimina ninguno del dataset. A continuación, se imputan los valores de latitud y longitud de las empresas ubicadas en el Mar Arábigo, con la media de sus vecinos más cercanos, utilizando las columnas `state_code`, `city` y `category_code`.
 
+Respecto a las columnas `age_first_milestone_year` y `age_last_milestone_year`, ambas tienen 152 valores faltantes, en los mismos registros. Además, esto se condice con la columna `milestones`: la startup no registra milestones si y solo si adolesce de valores faltantes. Por simplicidad, las dos columnas `age_` serán excluidas del dataset.
+
 
 ```{r}
 outliers <- startup %>% 
@@ -246,7 +248,7 @@ startup_imputed <- startup_to_impute %>%
   left_join(imputed_values, by = "name") %>% 
   mutate(latitude = if_else(is.na(latitude), lat, latitude),
          longitude = if_else(is.na(longitude), long, longitude)) %>% 
-  select(-c(lat, long)) %>% 
+  select(-c(lat, long, age_first_milestone_year, age_last_milestone_year)) %>% 
   mutate(status = factor(status),
          id = row_number())
 ```
