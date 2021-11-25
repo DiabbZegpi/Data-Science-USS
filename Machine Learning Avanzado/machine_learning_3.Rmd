@@ -99,7 +99,9 @@ theme_update(
 ```
 
 
-El dataset `startup` registra información de empresas emergentes (startups) en Estados Unidos. En total, contiene 923 filas y 49 columnas. Cada fila representa a una startup y cada columna a una característica de ésta. Inicialmente, hay muchas columnas que pueden ser construidos a partir de éstas, causando así duplicidad de datos. Por tanto, el primer análisis consistirá en determinar cuáles columnas pueden ser excluidas del dataset sin perder información relevante.  
+El dataset `startup` registra información de empresas emergentes (startups) en Estados Unidos. En total, contiene 923 filas y 49 columnas. Cada fila representa a una startup y cada columna a una característica de ésta. Inicialmente, hay muchas columnas que pueden ser construidos a partir de éstas, causando así duplicidad de datos. Por tanto, el primer análisis consistirá en determinar cuáles columnas pueden ser excluidas del dataset sin perder información relevante.
+
+Las variables dummy a descartar serán reconstruidas en el proceso de modelamiento, pero, por el momento, serán excluidas.
 
 
 ```{r}
@@ -244,7 +246,9 @@ startup_imputed <- startup_to_impute %>%
   left_join(imputed_values, by = "name") %>% 
   mutate(latitude = if_else(is.na(latitude), lat, latitude),
          longitude = if_else(is.na(longitude), long, longitude)) %>% 
-  select(-c(lat, long))
+  select(-c(lat, long)) %>% 
+  mutate(status = factor(status),
+         id = row_number())
 ```
 
 
@@ -256,6 +260,51 @@ startup_imputed %>%
   geom_histogram(bins = 15) +
   facet_wrap(~name)
 ```
+
+
+Finalmente, se particionan los datos en conjuntos de entrenamiento y prueba. A partir del conjunto de entrenamiento, se generan 25 conjuntos de validación utilizando* bootstrapping* estratificado.
+
+
+```{r}
+set.seed(123)
+startup_split <- initial_split(startup_imputed, strata = status)
+startup_train <- training(startup_split)
+startup_test <- testing(startup_split)
+
+set.seed(123)
+startup_boost <- bootstraps(startup_train, times = 25, strata = status)
+```
+
+
+## Preprocesamiento de datos
+
+Previo al entrenamiento de modelos con bootstrapping, se procede a realizar varias transformaciones sobre los datos:
+
+- Se declara que el rol de las variables `name` y `id` es meramente identificador, es decir, no serán usadas para ajustar los modelos.
+- Se agrupan las categorías con menos de 10 observaciones, de las variables `state_code`, `city` y `category_code`.
+- Se crean variables dummy a partir de las categorías.
+- Se extrae el año de las fechas.
+- se realiza una transformación logarítmica sobre las variables `funding_total_usd` y `avg_participants`, porque sus distribuciones son de gran varianza y sesgo.
+- Se normalizan ($\mu=0$ y $\sigma=1$) los predictores numéricos.
+- Se muestrea con reemplazo el nivel minoritario (closed) de la variable respuesta, hasta alcanzar un ratio de 1 entre las categorías.
+
+
+```{r message=FALSE, warning=FALSE}
+library(themis)
+
+preprocessing <- recipe(status ~ ., data = startup_train) %>% 
+  update_role(name, id, new_role = "id") %>% 
+  step_other(state_code, threshold = 10) %>% 
+  step_other(city, threshold = 10) %>% 
+  step_other(category_code, threshold = 10, other = "Other") %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_date(founded_at, first_funding_at, last_funding_at,
+            features = "year", keep_original_cols = FALSE) %>% 
+  step_log(funding_total_usd, avg_participants) %>% 
+  step_normalize(all_numeric_predictors()) %>% 
+  step_upsample(status)
+```
+
 
 
 ```{r}
