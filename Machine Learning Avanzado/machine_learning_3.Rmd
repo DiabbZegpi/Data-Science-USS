@@ -262,7 +262,7 @@ startup_imputed %>%
 ```
 
 
-Finalmente, se particionan los datos en conjuntos de entrenamiento y prueba. A partir del conjunto de entrenamiento, se generan 25 conjuntos de validación utilizando* bootstrapping* estratificado.
+Finalmente, se particionan los datos en conjuntos de entrenamiento y prueba. A partir del conjunto de entrenamiento, se generan 10 conjuntos de validación utilizando* bootstrapping* estratificado.
 
 
 ```{r}
@@ -272,7 +272,7 @@ startup_train <- training(startup_split)
 startup_test <- testing(startup_split)
 
 set.seed(123)
-startup_boost <- bootstraps(startup_train, times = 25, strata = status)
+startup_boots <- bootstraps(startup_train, times = 10, strata = status)
 ```
 
 
@@ -308,19 +308,40 @@ preprocessing <- recipe(status ~ ., data = startup_train) %>%
 
 ## Entrenamiento de red neuronal 1
 
-Lo primero es crear una especificación de modelo de red neuronal, en este caso, de una sola capa. El hiperparámetro a optimizar es la cantidad de perceptrones en la capa oculta, denotado por el argumento `hidden_units = tune()`. Esta configuración, por defecto, especifica que se entrenará la red con una grilla de 10 valores, entre 1 y 10, para la cantidad de unidades ocultas.
+Lo primero es crear una especificación de modelo de red neuronal, en este caso, de una sola capa. El hiperparámetro a optimizar es la cantidad de perceptrones en la capa oculta, denotado por el argumento `hidden_units = tune()`. Esta configuración, por defecto, especifica que se entrenará la red con una grilla de 10 valores, entre 1 y 10, para la cantidad de unidades ocultas. La función de activación por defecto para problemas de clasificación es *softmax*.
 
 
 ```{r}
 neural_net_1 <- mlp(hidden_units = tune()) %>% 
   set_mode("classification") %>% 
   set_engine("keras")
+neural_net_1
+```
+
+
+Luego, se incorporan tanto la especificación del modelo como las instrucciones de preprocesamiento en un objeto *workflow*.
+
+```{r}
+nnet_wf <- workflow() %>% 
+  add_recipe(preprocessing) %>% 
+  add_model(neural_net_1)
+nnet_wf
 ```
 
 
 
+```{r}
+nnet_grid_1 <- grid_regular(hidden_units(), levels = 10)
 
-
+set.seed(123)
+nnet_results_1 <- tune_grid(
+  nnet_wf,
+  preprocessing,
+  startup_boots,
+  grid = nnet_grid_1,
+  metrics = metric_set(accuracy, sens, spec)
+)
+```
 
 
 
