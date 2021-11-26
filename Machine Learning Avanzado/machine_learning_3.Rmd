@@ -210,7 +210,8 @@ ggplot(corm, aes(rowname, fct_rev(colname), fill = corr)) +
         legend.title = element_text(hjust = .1),
         legend.text.align = 1,
         legend.position = c(.75, .75),
-        axis.ticks = element_blank())
+        axis.ticks = element_blank(),
+        plot.margin = unit(c(.5,3.3,.5,3.3), "cm"))
 ```
 
 Se observa correlación moderada-alta entre la antigüedad de la startup en su primer y último financiamiento. Esta correlación indica que el tiempo que transcurre entre ambos eventos cambia varía en forma lineal de empresa en empresa. A su vez, las variables mencionadas se correlacionan moderadamente con la antigüedad de la empresa en su primer/último hito.
@@ -423,9 +424,14 @@ nnet_results_1 %>%
 ```
 
 
+Evidentemente, la red neuronal no alcanza el accuracy del modelo SVM, de aproximadamente 70% de las clasificaciones correctas. Aun asi, los resultados obtenidos por SVM no son alentadores. La matriz de confusion de SVM para todos los conjuntos de bootstrap expone que ambas clases son equitativamente dificiles para el modelo. Por otra parte, tras analizar la proporcion de cada clase, es evidente que la tasa de `closed` verdaderos es menor que la de `acquired`. Por lo tanto, al modelo SVM predice con menor precision que una startup haya cerrado.
 
 
-
+```{r}
+svm_results %>% 
+  collect_predictions() %>% 
+  conf_mat(truth = status, .pred_class) 
+```
 
 
 
