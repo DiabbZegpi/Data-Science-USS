@@ -351,13 +351,73 @@ nnet_results_1 <- readRDS(file = here("Machine Learning Avanzado", "nnet_results
 ```
 
 
+## Entrenamiento de SVM
+
+Para el modelo de SVM se utilizar el mismo preprocesador que para la red neuronal.
 
 
 ```{r}
+svm_spec <- svm_rbf() %>% 
+  set_mode("classification") %>% 
+  set_engine("kernlab")
+
+
+svm_wf <- workflow() %>% 
+  add_recipe(preprocessing) %>% 
+  add_model(svm_spec)
+svm_wf
+```
+
+
+```{r eval=FALSE}
+registerDoParallel(cl)
+
+svm_results <- fit_resamples(
+  svm_wf, 
+  resamples = startup_boots,
+  control = control_resamples(save_pred = TRUE, allow_par = TRUE)
+)
+
+stopImplicitCluster()
+```
+
+
+```{r echo=FALSE, eval=FALSE}
+saveRDS(svm_results, file = here("Machine Learning Avanzado", "svm_results.rds"))
+```
+
+
+```{r echo=FALSE}
+svm_results <- readRDS(file = here("Machine Learning Avanzado", "svm_results.rds"))
+```
+
+
+
+
+```{r echo=FALSE}
+svm_accuracy <- svm_results %>% 
+  collect_metrics() %>% 
+  filter(.metric == "accuracy")
+
+svm_accuracy <- map_dfr(-1:11, function(x) svm_accuracy) %>% 
+  mutate(hidden_units = -1:11)
+
 nnet_results_1 %>% 
-  collect_predictions() %>% 
-  group_by(.config) %>% 
-  roc_curve(truth = status, .pred_acquired)
+  collect_metrics() %>% 
+  filter(.metric == "accuracy") %>% 
+  ggplot(aes(hidden_units, mean)) +
+  geom_errorbar(aes(ymax = mean + std_err, ymin = mean - std_err), width = .3) +
+  geom_point(size = 4, shape = 21, fill = "white", color = "#111111", stroke = 2) +
+  geom_ribbon(data = svm_accuracy, 
+              aes(ymax = mean + std_err, ymin = mean - std_err),
+              alpha = .3) +
+  geom_hline(data = svm_accuracy, aes(yintercept = mean), linetype = 2) +
+  scale_y_continuous(labels = percent_format(), limits = c(.62, .72), expand = c(.01, .01)) + 
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 11), 
+                     labels = c(0, 2, 4, 6, 8, 10), breaks = c(0, 2, 4, 6, 8, 10)) + 
+  labs(title = "Red neuronal vs SVM", y = "Accuracy", x = "# hidden units")
+
+
 ```
 
 
