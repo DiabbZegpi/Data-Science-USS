@@ -392,8 +392,6 @@ svm_results <- readRDS(file = here("Machine Learning Avanzado", "svm_results.rds
 ```
 
 
-
-
 ```{r echo=FALSE}
 svm_accuracy <- svm_results %>% 
   collect_metrics() %>% 
@@ -410,14 +408,18 @@ nnet_results_1 %>%
   geom_point(size = 4, shape = 21, fill = "white", color = "#111111", stroke = 2) +
   geom_ribbon(data = svm_accuracy, 
               aes(ymax = mean + std_err, ymin = mean - std_err),
-              alpha = .3) +
+              alpha = .2) +
   geom_hline(data = svm_accuracy, aes(yintercept = mean), linetype = 2) +
+  geom_curve(aes(x = 2, xend = 2.2, y = .6615, yend = .65), curvature = .2, size = .2) +
+  geom_curve(aes(x = 2, xend = 2.8, y = .6865, yend = .65), curvature = -.3, size = .2) +
+  annotate("text", x = 2.6, y = .642, size = 5,
+           label= "Red Neuronal\nAccuracy estimado ± error estandar") +
+  annotate("text", x = 5.5, y = .702, size = 5,
+           label= "Support Vector Machine\nAccuracy estimado ± error estandar") +
   scale_y_continuous(labels = percent_format(), limits = c(.62, .72), expand = c(.01, .01)) + 
   scale_x_continuous(expand = c(0, 0), limits = c(0, 11), 
                      labels = c(0, 2, 4, 6, 8, 10), breaks = c(0, 2, 4, 6, 8, 10)) + 
   labs(title = "Red neuronal vs SVM", y = "Accuracy", x = "# hidden units")
-
-
 ```
 
 
