@@ -5,13 +5,6 @@ library(sparklyr)
 clean_data <- read_csv(file = here("Big Data", "Data", "clean_data.csv")) %>% 
   janitor::clean_names()
 
-sorted_pct <- function(..., wt = NULL) {
-  clean_data %>% 
-    count(..., sort = TRUE) %>% 
-    mutate(pct = n / sum(n),
-           pct_cumsum = cumsum(pct))
-}
-
 
 sc <- spark_connect(master = "local")
 cars_tbl <- copy_to(sc, clean_data)
@@ -63,23 +56,44 @@ spark_dplyr <- cars_tbl %>%
          starts_with("make_"),
          starts_with("model_"),
          starts_with("color_"))
-  
+
 
 cars_pipeline <- ml_pipeline(sc) %>% 
   ft_dplyr_transformer(tbl = spark_dplyr) %>% 
   ft_r_formula(number_of_trips ~ .) %>% 
-  ml_random_forest_regressor(num_trees = 5000)
+  ml_random_forest_regressor()
 
 
-spark_split <- sdf_random_split(cars_tbl, training = .8, testing = .2)
+spark_split <- sdf_random_split(cars_tbl, training = .6, testing = .4)
 
 
 spark_model <- ml_fit(cars_pipeline, spark_split$training)  
-  
-  
-  
-  
-  
-  
-  
-  
+spark_pred <- ml_transform(spark_model, spark_split$testing)
+
+
+results <- spark_pred %>% 
+  select(number_of_trips, prediction,
+         starts_with("make_"),
+         starts_with("color_")) %>%
+  collect()
+
+
+results %>%   
+  mutate(number_of_trips = exp(number_of_trips),
+         prediction = exp(prediction)) %>% 
+  pivot_longer(cols = starts_with("color_"), names_to = "color") %>%
+  filter(value > 0) %>% 
+  mutate(color = str_remove(color, "color_") %>% str_to_title(),
+         error = number_of_trips - prediction,
+         error2 = error ^ 2) %>%
+  group_by(color) %>% 
+  summarise(rmse = sqrt(mean(error2)), 
+            mae = mean(abs(error)),
+            std = sd(error),
+            skew = moments::skewness(error),
+            kurtosis = moments::kurtosis(error),
+            n = n(),
+            .groups = "drop")
+            
+            
+            
