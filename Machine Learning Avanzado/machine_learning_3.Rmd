@@ -142,7 +142,7 @@ A continuación, se exploran descriptivamente todas las variables, de acuerdo co
 - Todas las empresas obtuvieron su último financiamiento entre enero del 2001 y noviembre del 2013.
 
 
-## Variables numéricas
+### Variables numéricas
 - La antigüedad de la empresa hasta su primer y último
 
 
@@ -299,9 +299,9 @@ preprocessing <- recipe(status ~ ., data = startup_train) %>%
 ```
 
 
-## Entrenamiento de red neuronal 1
+## Entrenamiento de red neuronal 1 
 
-Lo primero es crear una especificación de modelo de red neuronal, en este caso, de una sola capa. El hiperparámetro a optimizar es la cantidad de perceptrones en la capa oculta, denotado por el argumento `hidden_units = tune()`. Esta configuración, por defecto, especifica que se entrenará la red con una grilla de 10 valores, entre 1 y 10, para la cantidad de unidades ocultas. La función de activación por defecto para problemas de clasificación es *softmax*.
+Lo primero es crear una especificación de modelo de red neuronal MLP (multilayer perceptron), en este caso, de una sola capa. El hiperparámetro a optimizar es la cantidad de perceptrones en la capa oculta, denotado por el argumento `hidden_units = tune()`. Esta configuración, por defecto, especifica que se entrenará la red con una grilla de 10 valores, entre 1 y 10, para la cantidad de unidades ocultas. La función de activación por defecto para problemas de clasificación es *softmax*.
 
 
 ```{r}
@@ -432,6 +432,88 @@ svm_results %>%
   collect_predictions() %>% 
   conf_mat(truth = status, .pred_class) 
 ```
+
+
+## Entrenamiento de red neuronal 2 
+
+```{r}
+library(keras)
+
+x_train <- preprocessing %>% prep() %>% juice(all_predictors(), composition = "matrix") 
+y_train <- preprocessing %>% prep() %>% juice(all_outcomes()) %>% pull()
+```
+
+
+```{r}
+model_flags <- flags(
+  flag_integer("layer_1", default = 10),
+  flag_integer("layer_2", default = 10),
+  flag_integer("layer_3", default = 10),
+  flag_integer("layer_4", default = 10),
+  flag_integer("layer_5", default = 10)
+)
+
+model_keras <- keras_model_sequential() %>% 
+  layer_dense(units = 10, activation = "relu", input_shape = ncol(x_train)) %>% 
+  layer_dropout(rate = .4) %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dropout(rate = .3) %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dropout(rate = .2) %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dropout(rate = .1) %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dense(units = 1, activation = "softmax")
+
+model_keras %>% compile(
+  optimizer = optimizer_rmsprop(),
+  loss = "categorical_crossentropy",
+  metrics = "accuracy"
+)
+
+
+history <- model_keras %>% fit(
+  x_train, y_train,
+  epochs = 5, batch_size = 128,
+  validation_split = .2
+)
+
+
+par <- list(
+  layer_1 = c(10, seq(20, 140, by = 20)),
+  layer_2 = c(10, seq(20, 140, by = 20)),
+  layer_3 = c(10, seq(20, 140, by = 20)),
+  layer_4 = c(10, seq(20, 140, by = 20)),
+  layer_5 = c(10, seq(20, 140, by = 20))
+)
+
+runs <- 
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
