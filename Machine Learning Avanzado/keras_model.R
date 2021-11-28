@@ -40,6 +40,3 @@ score <- model_keras %>% evaluate(
   x_test, y_test,
   verbose = 0
 )
-
-cat('Test loss:', score$loss, '\n')
-cat('Test accuracy:', score$acc, '\n')
