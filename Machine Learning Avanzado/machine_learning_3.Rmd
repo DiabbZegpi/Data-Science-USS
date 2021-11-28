@@ -430,7 +430,7 @@ Evidentemente, la red neuronal no alcanza el accuracy del modelo SVM, de aproxim
 ```{r}
 svm_results %>% 
   collect_predictions() %>% 
-  conf_mat(truth = status, .pred_class) 
+  conf_mat(truth = status, .pred_class)
 ```
 
 
@@ -439,47 +439,34 @@ svm_results %>%
 ```{r}
 library(keras)
 
-x_train <- preprocessing %>% prep() %>% juice(all_predictors(), composition = "matrix") 
-y_train <- preprocessing %>% prep() %>% juice(all_outcomes()) %>% pull()
+x_train <- preprocessing %>% 
+  prep() %>% 
+  juice(all_predictors(), composition = "matrix") 
+
+y_train <- preprocessing %>% 
+  prep() %>% 
+  juice(all_outcomes()) %>% 
+  pull() %>% 
+  as.numeric() %>%
+  {. - 1} %>% 
+  to_categorical(num_classes = 2)
+
+x_test <- preprocessing %>% 
+  prep() %>% 
+  bake(new_data = startup_test, all_predictors(), composition = "matrix")
+
+y_test <- preprocessing %>% 
+  prep() %>% 
+  bake(new_data = startup_test, all_outcomes()) %>% 
+  pull() %>% 
+  as.numeric() %>%
+  {. - 1} %>% 
+  to_categorical(num_classes = 2)
 ```
 
 
-```{r}
-model_flags <- flags(
-  flag_integer("layer_1", default = 10),
-  flag_integer("layer_2", default = 10),
-  flag_integer("layer_3", default = 10),
-  flag_integer("layer_4", default = 10),
-  flag_integer("layer_5", default = 10)
-)
-
-model_keras <- keras_model_sequential() %>% 
-  layer_dense(units = 10, activation = "relu", input_shape = ncol(x_train)) %>% 
-  layer_dropout(rate = .4) %>% 
-  layer_dense(units = 10, activation = "relu") %>% 
-  layer_dropout(rate = .3) %>% 
-  layer_dense(units = 10, activation = "relu") %>% 
-  layer_dropout(rate = .2) %>% 
-  layer_dense(units = 10, activation = "relu") %>% 
-  layer_dropout(rate = .1) %>% 
-  layer_dense(units = 10, activation = "relu") %>% 
-  layer_dense(units = 1, activation = "softmax")
-
-model_keras %>% compile(
-  optimizer = optimizer_rmsprop(),
-  loss = "categorical_crossentropy",
-  metrics = "accuracy"
-)
-
-
-history <- model_keras %>% fit(
-  x_train, y_train,
-  epochs = 5, batch_size = 128,
-  validation_split = .2
-)
-
-
-par <- list(
+```{r eval=FALSE}
+tune_pars <- list(
   layer_1 = c(10, seq(20, 140, by = 20)),
   layer_2 = c(10, seq(20, 140, by = 20)),
   layer_3 = c(10, seq(20, 140, by = 20)),
@@ -487,11 +474,19 @@ par <- list(
   layer_5 = c(10, seq(20, 140, by = 20))
 )
 
-runs <- 
+library(tfruns)
+
+runs <- tuning_run(file = here("Machine Learning Avanzado", "keras_model.R"), 
+                   runs_dir = here("Machine Learning Avanzado"),
+                   flags = tune_pars, 
+                   sample = .01)
 ```
 
 
 
+```{r}
+
+```
 
 
 
