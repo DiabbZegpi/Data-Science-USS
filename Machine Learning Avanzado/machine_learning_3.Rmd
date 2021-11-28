@@ -429,12 +429,17 @@ Evidentemente, la red neuronal no alcanza el accuracy del modelo SVM, de aproxim
 
 ```{r}
 svm_results %>% 
-  collect_predictions() %>% 
-  conf_mat(truth = status, .pred_class)
+  collect_predictions() %>%
+  count(id, .pred_class, status) %>% 
+  group_by(.pred_class, status) %>% 
+  summarize(pred_class = mean(n), .groups = "drop") %>% 
+  pivot_wider(names_from = status, values_from = pred_class) 
 ```
 
 
 ## Entrenamiento de red neuronal 2 
+
+El entrenamiento de la red neuronal profunda será llevado a cago utilizando el paquete `keras`. Este framework necesita que los datos de entrenamiento y prueba ingresen al modelo en forma matricial.
 
 ```{r}
 library(keras)
@@ -465,7 +470,62 @@ y_test <- preprocessing %>%
 ```
 
 
+La afinación de hiperparámetros la realiza la función `tuning_run()` del paquete `tfruns`. Esta función llama a un archivo de extensión `.R` que contiene al modelo, para variar sus parámetros y entrenar los modelos de manera iterativa. El script `keras_model.R` se muestra a continuación.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(keras)
+```
+
+
 ```{r eval=FALSE}
+library(keras)
+
+model_flags <- flags(
+  flag_integer("layer_1", default = 10),
+  flag_integer("layer_2", default = 10),
+  flag_integer("layer_3", default = 10),
+  flag_integer("layer_4", default = 10),
+  flag_integer("layer_5", default = 10)
+)
+
+model_keras <- keras_model_sequential() %>% 
+  layer_dense(units = model_flags$layer_1, activation = "relu", input_shape = 59) %>% 
+  layer_dropout(rate = .4) %>% 
+  layer_dense(units = model_flags$layer_2, activation = "relu") %>% 
+  layer_dropout(rate = .3) %>% 
+  layer_dense(units = model_flags$layer_3, activation = "relu") %>% 
+  layer_dropout(rate = .2) %>% 
+  layer_dense(units = model_flags$layer_4, activation = "relu") %>% 
+  layer_dropout(rate = .1) %>% 
+  layer_dense(units = model_flags$layer_5, activation = "relu") %>% 
+  layer_dense(units = 2, activation = "softmax")
+
+model_keras %>% compile(
+  optimizer = optimizer_rmsprop(learning_rate = .001),
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+)
+
+history <- model_keras %>% fit(
+  x_train, y_train,
+  epochs = 20, 
+  batch_size = 128,
+  validation_split = .2
+)
+
+plot(history)
+
+score <- model_keras %>% evaluate(
+  x_test, y_test,
+  verbose = 0
+)
+```
+
+Solamente se entrena a una muestra del 1% de los modelos de 5 capas ocultas, de un total de 32800 arquitecturas. Esta celda de código es costosa de ejecutar, y se recomienda guardar los resultados una vez corrido el código, o descargar el archivo del [repositorio en github](https://github.com/DiabbZegpi/Data-Science-USS/tree/master/Machine%20Learning%20Avanzado).
+
+
+```{r eval=FALSE}
+# Optimización de hiperparámetros
 tune_pars <- list(
   layer_1 = c(10, seq(20, 140, by = 20)),
   layer_2 = c(10, seq(20, 140, by = 20)),
@@ -477,28 +537,113 @@ tune_pars <- list(
 library(tfruns)
 
 runs <- tuning_run(file = here("Machine Learning Avanzado", "keras_model.R"), 
-                   runs_dir = here("Machine Learning Avanzado"),
+                   runs_dir = here("Machine Learning Avanzado", "keras_runs"),
                    flags = tune_pars, 
                    sample = .01)
 ```
 
 
-
-```{r}
-
+```{r echo=FALSE, eval=FALSE}
+saveRDS(runs, file = here("Machine Learning Avanzado", "keras_runs.rds")) 
 ```
 
 
+```{r}
+runs <- readRDS(file = here("Machine Learning Avanzado", "keras_runs.rds"))
+```
 
 
+## Análisis de los resultados
+
+En la gráfica siguiente se aprecia que el incremento del número de neuronas cierra la brecha entre la exactitud de los conjuntos de entrenamiento y prueba. La mejor arquitectura tiene la forma (100, 60, 140, 10, 100), con un accuracy en el conjunto de validación del 73,7%.
 
 
+```{r}
+runs <- runs %>% as_tibble()
+runs %>% 
+  rowwise() %>% 
+  mutate(total_units = sum(c_across(flag_layer_1:flag_layer_5))) %>%
+  ungroup() %>% 
+  pivot_longer(cols = c(metric_accuracy, metric_val_accuracy)) %>% 
+  ggplot(aes(total_units, value, fill = name)) +
+  geom_point(alpha = .6, size = 3, shape = 21, color = "black") +
+  geom_smooth(method = "loess", formula = y ~ x, color = "#111111") +
+  scale_fill_manual(values = c("firebrick", "dodgerblue"),
+                    labels = c("Entrenamiento", "Validación"),
+                    name = NULL) +
+  scale_y_continuous(labels = percent_format()) +
+  labs(title = "Optimización de red neuronal profunda",
+       x = "Total units",
+       y = "Accuracy") +
+  theme(legend.background = element_rect(fill = "transparent"),
+        legend.key = element_rect(fill = "transparent"))
+```
 
 
+Ahora se reentrena el modelo con la mejor combinación alcanzado.
+
+```{r eval=FALSE}
+library(keras)
+
+model_keras <- keras_model_sequential() %>% 
+  layer_dense(units = 100, activation = "relu", input_shape = 59) %>% 
+  layer_dropout(rate = .4) %>% 
+  layer_dense(units = 60, activation = "relu") %>% 
+  layer_dropout(rate = .3) %>% 
+  layer_dense(units = 140, activation = "relu") %>% 
+  layer_dropout(rate = .2) %>% 
+  layer_dense(units = 10, activation = "relu") %>% 
+  layer_dropout(rate = .1) %>% 
+  layer_dense(units = 100, activation = "relu") %>% 
+  layer_dense(units = 2, activation = "softmax")
+
+model_keras %>% compile(
+  optimizer = optimizer_rmsprop(learning_rate = .001),
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+)
+
+model_keras %>% compile(
+  optimizer = optimizer_rmsprop(learning_rate = .001),
+  loss = "categorical_crossentropy",
+  metrics = c("accuracy")
+)
+
+history <- model_keras %>% fit(
+  x_train, y_train,
+  epochs = 20, 
+  batch_size = 128,
+  validation_split = .2
+)
+```
 
 
+```{r echo=FALSE, eval=FALSE}
+save_model_tf(model_keras, file = here("Machine Learning Avanzado"))
+```
+
+```{r echo=FALSE}
+model_keras <- load_model_tf("Machine Learning Avanzado")
+```
 
 
+Para finalizar, se hacen predicciones e el conjunto de entrenamiento.
+
+```{r warning=FALSE, message=FALSE}
+preds <- model_keras %>% 
+  predict(x_test) %>% 
+  as_tibble(.name_repair = function(x) c("acquired", "closed")) %>% 
+  bind_cols(preprocessing %>% 
+              prep() %>% 
+              bake(new_data = startup_test, all_outcomes())) %>% 
+  mutate(pred = if_else(acquired > closed, "acquired", "closed"),
+         pred = factor(pred))
+
+preds %>% accuracy(truth = status, pred)
+preds %>% conf_mat(truth = status, pred)
+```
+
+La red neuronal profunda supera al model SVM en accuracy. Además, debido al efecto de SMOTE, la amtriz de confusión del SVM tiene más observaciones. Esto debió ser corregido durante la etapa de creación de la matriz `x_train`, pero no altera demasiado los resultados.
 
 
 
