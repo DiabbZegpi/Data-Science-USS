@@ -1,10 +1,6 @@
 ---
 title: "Taller 3 de Machine Learning Avanzado"
-author: 
-  - Araneda F., Marcela
-  - Reyes G., Álvaro
-  - Sepúlveda M., Danilo
-  - Zegpi D., Diabb
+author: Diabb Zegpi Delgado
 output: 
   html_document:
     theme: united
@@ -99,7 +95,7 @@ theme_update(
 ```
 
 
-El dataset `startup` registra información de empresas emergentes (startups) en Estados Unidos. En total, contiene 923 filas y 49 columnas. Cada fila representa a una startup y cada columna a una característica de ésta. Inicialmente, hay muchas columnas que pueden ser construidos a partir de éstas, causando así duplicidad de datos. Por tanto, el primer análisis consistirá en determinar cuáles columnas pueden ser excluidas del dataset sin perder información relevante.
+El dataset `startup` registra información de empresas emergentes (startups) en Estados Unidos. En total, contiene 923 filas y 49 columnas. Cada fila representa a una startup y cada columna a una característica de ésta. Inicialmente, hay muchas columnas que pueden ser construidas a partir de éstas, causando así duplicidad de datos. Por tanto, el primer análisis consistirá en determinar cuáles columnas pueden ser excluidas del dataset sin perder información relevante.
 
 Las variables dummy a descartar serán reconstruidas en el proceso de modelamiento, pero, por el momento, serán excluidas.
 
@@ -125,8 +121,7 @@ startup <- startup %>%
 ```
 
 
-A continuación, se exploran descriptivamente todas las variables, de acuerdo con us tipo de dato.
-
+A continuación, se exploran descriptivamente todas las variables, de acuerdo con su tipo de dato.
 ### Variables categóricas
 - No hay *missing data* en las columnas categóricas. 
 - Las empresas provienen de 35 estados; el 52,9% es de California (CA).
@@ -137,14 +132,12 @@ A continuación, se exploran descriptivamente todas las variables, de acuerdo co
 
 
 ### Variables fecha
-- Las empresas fueron fundadas entre el 1 de enero de 1984 y el 16 de abirl de 2013.
+- Las empresas fueron fundadas entre el 1 de enero de 1984 y el 16 de abril de 2013.
 - Todas las empresas obtuvieron su primer financiamiento entre enero del 2000 y noviembre del 2013.
 - Todas las empresas obtuvieron su último financiamiento entre enero del 2001 y noviembre del 2013.
 
 
 ### Variables numéricas
-- La antigüedad de la empresa hasta su primer y último
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(maps)
@@ -156,7 +149,9 @@ ggplot() +
              inherit.aes = FALSE, fill = "gold3", size = 5, 
              alpha = .4, shape = 21, color = "gray30", stroke = 1) +
   coord_cartesian(xlim = c(-125, -69), ylim = c(25, 50)) +
-  theme_void()
+  theme_void() +
+  theme(plot.background = element_rect(fill = "#fff9fa"),
+        panel.background = element_rect(fill = "#fff9fa"))
 ```
 
 
@@ -202,7 +197,7 @@ ggplot(corm, aes(rowname, fct_rev(colname), fill = corr)) +
                             as.character(corr_labs))) +
   labs(x = NULL, y = NULL, fill = expression(rho), 
        title = "Matriz de correlación") +
-  coord_fixed() +
+  # coord_fixed() +
   theme(panel.border = element_rect(color = NA, fill = NA),
         axis.text.y = element_text(margin = margin(0, 0, 0, 0)),
         axis.text.x = element_text(angle = 90),
@@ -210,11 +205,11 @@ ggplot(corm, aes(rowname, fct_rev(colname), fill = corr)) +
         legend.title = element_text(hjust = .1),
         legend.text.align = 1,
         legend.position = c(.75, .75),
-        axis.ticks = element_blank(),
-        plot.margin = unit(c(.5,3.3,.5,3.3), "cm"))
+        axis.ticks = element_blank())
+        # plot.margin = unit(c(.3,.8,.3,.8), "cm"))
 ```
 
-Se observa correlación moderada-alta entre la antigüedad de la startup en su primer y último financiamiento. Esta correlación indica que el tiempo que transcurre entre ambos eventos cambia varía en forma lineal de empresa en empresa. A su vez, las variables mencionadas se correlacionan moderadamente con la antigüedad de la empresa en su primer/último hito.
+Se observa correlación moderada-alta entre la antigüedad de la startup en su primer y último financiamiento. Esta correlación indica que el tiempo que transcurre entre ambos eventos varía en forma lineal de empresa en empresa. A su vez, las variables mencionadas se correlacionan moderadamente con la antigüedad de la empresa en su primer/último hito.
 
 Se estima que no hay correlaciones suficientemente altas entre los predictores, por ende, no se elimina ninguno del dataset. A continuación, se imputan los valores de latitud y longitud de las empresas ubicadas en el Mar Arábigo, con la media de sus vecinos más cercanos, utilizando las columnas `state_code`, `city` y `category_code`.
 
@@ -277,7 +272,7 @@ Previo al entrenamiento de modelos con bootstrapping, se procede a realizar vari
 - Se agrupan las categorías con menos de 10 observaciones, de las variables `state_code`, `city` y `category_code`.
 - Se crean variables dummy a partir de las categorías.
 - Se extrae el año de las fechas.
-- se realiza una transformación logarítmica sobre las variables `funding_total_usd` y `avg_participants`, porque sus distribuciones son de gran varianza y sesgo.
+- Se realiza una transformación logarítmica sobre las variables `funding_total_usd` y `avg_participants`, porque sus distribuciones son de gran varianza y sesgo.
 - Se normalizan ($\mu=0$ y $\sigma=1$) los predictores numéricos.
 - Se muestrea con reemplazo el nivel minoritario (closed) de la variable respuesta, hasta alcanzar un ratio de 1 entre las categorías.
 
@@ -354,7 +349,7 @@ nnet_results_1 <- readRDS(file = here("Machine Learning Avanzado", "nnet_results
 
 ## Entrenamiento de SVM
 
-Para el modelo de SVM se utilizar el mismo preprocesador que para la red neuronal.
+Para el modelo de SVM se utiliza el mismo preprocesador que para la red neuronal.
 
 
 ```{r}
@@ -413,10 +408,10 @@ nnet_results_1 %>%
   geom_hline(data = svm_accuracy, aes(yintercept = mean), linetype = 2) +
   geom_curve(aes(x = 2, xend = 2.2, y = .6615, yend = .65), curvature = .2, size = .2) +
   geom_curve(aes(x = 2, xend = 2.8, y = .6865, yend = .65), curvature = -.3, size = .2) +
-  annotate("text", x = 2.6, y = .642, size = 5,
-           label= "Red Neuronal\nAccuracy estimado ± error estándar") +
+  annotate("text", x = 2.6, y = .64, size = 5,
+           label= "Red Neuronal\nAccuracy ± error estándar") +
   annotate("text", x = 5.5, y = .702, size = 5,
-           label= "Support Vector Machine\nAccuracy estimado ± error estándar") +
+           label= "Support Vector Machine\nAccuracy ± error estándar") +
   scale_y_continuous(labels = percent_format(), limits = c(.62, .72), expand = c(.01, .01)) + 
   scale_x_continuous(expand = c(0, 0), limits = c(0, 11), 
                      labels = c(0, 2, 4, 6, 8, 10), breaks = c(0, 2, 4, 6, 8, 10)) + 
@@ -424,7 +419,7 @@ nnet_results_1 %>%
 ```
 
 
-Evidentemente, la red neuronal no alcanza el accuracy del modelo SVM, de aproximadamente 70% de las clasificaciones correctas. Aún así, los resultados obtenidos por SVM no son alentadores. La matriz de confusión de SVM para todos los conjuntos de bootstrap expone que ambas clases son equitativamente dificíles para el modelo. Por otra parte, tras analizar la proporción de cada clase, es evidente que la tasa de `closed` verdaderos es menor que la de `acquired`. Por lo tanto, al modelo SVM predice con menor precisión que una startup haya cerrado.
+Evidentemente, la red neuronal no alcanza el accuracy del modelo SVM, de aproximadamente 70% de las clasificaciones correctas. Aún así, los resultados obtenidos por SVM no son alentadores. La matriz de confusión de SVM para todos los conjuntos de bootstrap expone que ambas clases son equitativamente difícíles para el modelo. Por otra parte, tras analizar la proporción de cada clase, es evidente que la tasa de `closed` verdaderos es menor que la de `acquired`. Por lo tanto, al modelo SVM predice con menor precisión que una startup haya cerrado, comparado con la red neuronal.
 
 
 ```{r}
@@ -439,9 +434,9 @@ svm_results %>%
 
 ## Entrenamiento de red neuronal 2 
 
-El entrenamiento de la red neuronal profunda será llevado a cago utilizando el paquete `keras`. Este framework necesita que los datos de entrenamiento y prueba ingresen al modelo en forma matricial.
+El entrenamiento de la red neuronal profunda será llevado a cabo utilizando el paquete `keras`. Este framework necesita que los datos de entrenamiento y prueba ingresen al modelo en forma matricial.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(keras)
 
 x_train <- preprocessing %>% 
@@ -471,10 +466,6 @@ y_test <- preprocessing %>%
 
 
 La afinación de hiperparámetros la realiza la función `tuning_run()` del paquete `tfruns`. Esta función llama a un archivo de extensión `.R` que contiene al modelo, para variar sus parámetros y entrenar los modelos de manera iterativa. El script `keras_model.R` se muestra a continuación.
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-library(keras)
-```
 
 
 ```{r eval=FALSE}
@@ -548,7 +539,7 @@ saveRDS(runs, file = here("Machine Learning Avanzado", "keras_runs.rds"))
 ```
 
 
-```{r}
+```{r echo=FALSE}
 runs <- readRDS(file = here("Machine Learning Avanzado", "keras_runs.rds"))
 ```
 
@@ -558,7 +549,7 @@ runs <- readRDS(file = here("Machine Learning Avanzado", "keras_runs.rds"))
 En la gráfica siguiente se aprecia que el incremento del número de neuronas cierra la brecha entre la exactitud de los conjuntos de entrenamiento y prueba. La mejor arquitectura tiene la forma (100, 60, 140, 10, 100), con un accuracy en el conjunto de validación del 73,7%.
 
 
-```{r}
+```{r echo=FALSE}
 runs <- runs %>% as_tibble()
 runs %>% 
   rowwise() %>% 
@@ -580,7 +571,7 @@ runs %>%
 ```
 
 
-Ahora se reentrena el modelo con la mejor combinación alcanzado.
+Ahora se reentrena el modelo con la mejor combinación alcanzada.
 
 ```{r eval=FALSE}
 library(keras)
@@ -619,15 +610,15 @@ history <- model_keras %>% fit(
 
 
 ```{r echo=FALSE, eval=FALSE}
-save_model_tf(model_keras, file = here("Machine Learning Avanzado"))
+save_model_tf(model_keras, filepath = here("Machine Learning Avanzado"))
 ```
 
 ```{r echo=FALSE}
-model_keras <- load_model_tf("Machine Learning Avanzado")
+model_keras <- load_model_tf(filepath = here("Machine Learning Avanzado"))
 ```
 
 
-Para finalizar, se hacen predicciones e el conjunto de entrenamiento.
+Para finalizar, se hacen predicciones en el conjunto de entrenamiento.
 
 ```{r warning=FALSE, message=FALSE}
 preds <- model_keras %>% 
@@ -643,7 +634,7 @@ preds %>% accuracy(truth = status, pred)
 preds %>% conf_mat(truth = status, pred)
 ```
 
-La red neuronal profunda supera al model SVM en accuracy. Además, debido al efecto de SMOTE, la amtriz de confusión del SVM tiene más observaciones. Esto debió ser corregido durante la etapa de creación de la matriz `x_train`, pero no altera demasiado los resultados.
+La red neuronal profunda supera al model SVM en accuracy. Además, debido al efecto de SMOTE, la matriz de confusión del SVM tiene más observaciones. Esto debió ser corregido durante la etapa de creación de la matriz `x_train`, pero no altera demasiado los resultados.
 
 
 
