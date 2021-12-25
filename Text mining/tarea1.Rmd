@@ -211,8 +211,23 @@ sender_counts %>%
          pct = cumsum / sum(cumsum))  
 ```
 
+Otro asunto relevante es el comportamiento de los mensajes de acuerdo a la hora del día. Esto se explorará con diagramas de cajas.
 
+```{r echo=FALSE}
+chat_train %>% 
+  mutate(sender = if_else(str_detect(sender, "\\s"),
+                          str_match(sender, "^(.+)\\s.*")[,2],
+                          sender)) %>%
+  ggplot(aes(reorder(sender, hour), hour)) +
+  geom_boxplot() +
+  labs(x = NULL, y = "Hora del día",
+       title = "Mensajeros diurnos y nocturnos") +
+  scale_y_continuous(breaks = seq(0, 24, 6),
+                     labels = seq(0, 24, 6)) +
+  theme(axis.text.x = element_text(angle = 90))
+```
 
+En el gráfico anterior se observan diferencias en los patrones de envío de mensajes de acuerdo a la hora del día: Danilo saluda todos los días entre las 6 y las 7 de la mañana; Álvaro es activo durante todo el día, pero el 50% de su actividad es entre las 10 de la mañana y las 8 de la tarde, muy parecido a Miguel y José Luis; es raro que Martín hable antes de las 11 y después de las 17, pero el tamaño muestral es pequeño; Marcela tiene mucha actividad en torno a las 13 horas, con desviaciones hasta las 23, etc.
 
 
 
