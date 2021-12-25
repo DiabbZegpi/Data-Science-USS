@@ -73,6 +73,7 @@ Este trabajo consiste en la utilización del chat del grupo de Whatsapp *"Magís
 
 El objetivo del proyecto es utilizar los datos de mensajes del grupo para predecir quién es autor(a) de un mensaje determinado.
 
+Primero que todo, se cargan los paquetes de funciones a utilizar en el análisis.
 
 ```{r warning=FALSE, message=FALSE}
 # Dependencias
@@ -84,6 +85,7 @@ library(lubridate)
 tidymodels_prefer()
 ```
 
+Después, se importa el archivo con extensión *.txt* con los datos de conversaciones del grupo. Estos datos son una lista, en que cada nueva línea se compone por un mensaje nuevo o por un salto de línea dentro dentro de un mensaje. Cada mensaje tiene el formato *6/11/2021 20:34 - Remitente: mensaje*. Este formato no es ideal para el análisis de datos, por esto, se recorre la lista de mensajes y saltos de líneas para formar un dataset con 3 columnas: `sender`, `datetime` y `message`.
 
 ```{r warning=FALSE}
 text <- read.delim(here("Text Mining", "chat_wsp.txt"), 
@@ -117,9 +119,15 @@ chat <- tibble(
   datetime = datetime,
   message = message
 )
+
+head(chat)
 ```
 
+El largo del dataset es de `r nrow(chat)` mensajes. Ha de notarse que muchos de ellos son contenido multimedia, sean como imágenes, audios o videos. Debido a que el análisis del contenido multimedia está fuera del alcance del proyecto, estos han sido omitidos, por ende, los mensajes de multimedia tienen que ser excluidos.
 
+Otra característica del dataset es la codificación: hay caracteres con tildes y emoticones, los que serán removidos en pos de simplificar el análisis. El costo de esta operación es que el texto perderá interpretabilidad, debido a la remoción de tildes y de la letra *ñ*. 
+
+Como etapas finales de la preparación de datos, el texto se pasa a minúsculas y se quitan todos los caracteres que no sean letras del alfabeto latino. Adicionalmente, para mejorar el poder predictivo de los modelos posteriores, se crean las columnas `hour` y `week_day`.
 
 ```{r}
 chat_clean <- chat %>% 
@@ -131,10 +139,12 @@ chat_clean <- chat %>%
          message = str_replace_all(message, "\\s+", " "),
          date = as_date(str_sub(datetime, end = -7L), format = "%d/%m/%Y"),
          hour = as.numeric(str_sub(datetime, start = -5L, end = -4L)),
-         day = weekdays(date)) %>% 
+         week_day = weekdays(date)) %>% 
   select(-datetime) %>% 
   filter(!is.na(message) & str_length(message) > 0)
 ```
+
+El dataset resultante tiene `ncol(chat_clean)` variables y `nrow(chat_clean)` filas o mensajes. 
 
 
 ```{r}
