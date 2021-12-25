@@ -2,29 +2,164 @@
 title: "Tarea 1"
 author: "Diabb Zegpi"
 date: "25-12-2021"
-output: html_document
+output: 
+  html_document:
+    theme: united
+    highlight: kate
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+ragg_png = function(..., res = 500) {
+  ragg::agg_png(..., res = res, units = "in")
+}
+
+knitr::opts_chunk$set(
+  echo = TRUE, 
+  class.output = "purple-output",
+  dev = "ragg_png", 
+  fig.align = "center"
+)
 ```
 
-## R Markdown
+<style>
+  body {
+    font-size: 16px;
+    background-color: #fff9fa;
+  }
+  
+  pre {
+    border: 0px;
+  }
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+  .sourceCode, code {
+    font-family: 'Fira Mono';
+  }
+  
+  code {
+    background-color: #e5eeeb;
+    color: #111;
+  }
+  
+  pre.sourceCode {
+    color: #111;
+    font-weight: 500;
+    background-color: #e5eeeb;
+  }
+  
+  code span.fu {
+    color: #0e4747;
+    font-weight: 600;
+  }
+  
+  code span.sc {
+    color: #ae4d00;
+    font-weight: 600;
+  }
+  
+  code span.st {
+    color: #ae4d00;
+  }
+  
+  .purple-output{
+    background-color: #012626;
+    color: #eee;
+  }
+</style>
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+Este trabajo consiste en la utilización del chat del grupo de Whatsapp *"Magíster USS"*, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. 
+
+El objetivo del proyecto es utilizar los datos de mensajes del grupo para predecir quién es autor(a) de un mensaje determinado.
+
+
+```{r warning=FALSE, message=FALSE}
+# Dependencias
+library(tidyverse)
+library(tidymodels)
+library(here)
+library(stringi)
+library(lubridate)
+tidymodels_prefer()
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+```{r warning=FALSE}
+text <- read.delim(here("Text Mining", "chat_wsp.txt"), 
+                   encoding = "UTF-8",
+                   sep = "\n",
+                   col.names = "text",
+                   skip = 1) %>% 
+  as_tibble()
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+text <- text$text
+datetime_regex <- "^\\d{1,2}/\\d{1,2}/\\d{4} \\d{2}:\\d{2}"
+j <- 1
+sender <- vector("character")
+datetime <- vector("character")
+message <- vector("character")
+
+for (i in 1:length(text)) {
+  if (str_detect(text[i], datetime_regex)) {
+    sender[j] <- str_match(text[i], "^.+ - (.+?): ")[,2] 
+    datetime[j] <- str_match(text[i], datetime_regex)[,1]
+    message[j] <- str_match(text[i], "^.+: (.+)$")[,2]
+    j <- j + 1
+  } else {
+    message[j] <- paste(message[j], text[i], sep = " ")
+  }
+}
+
+chat <- tibble(
+  sender = sender, 
+  datetime = datetime,
+  message = message
+)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+```{r}
+chat_clean <- chat %>% 
+  mutate(message = stri_trans_general(message, id = "Latin-ASCII"),
+         message = str_replace_all(message, "[^\x01-\x7F]", ""),
+         message = str_replace(message, "<Multimedia omitido>", ""),
+         message = str_to_lower(message),
+         message = str_replace_all(message, "[^a-z]", " "),
+         message = str_replace_all(message, "\\s+", " "),
+         date = as_date(str_sub(datetime, end = -7L), format = "%d/%m/%Y"),
+         hour = as.numeric(str_sub(datetime, start = -5L, end = -4L)),
+         day = weekdays(date)) %>% 
+  select(-datetime) %>% 
+  filter(!is.na(message) & str_length(message) > 0)
+```
+
+
+```{r}
+chat_clean %>% 
+  
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
