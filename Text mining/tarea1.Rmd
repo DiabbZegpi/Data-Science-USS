@@ -69,7 +69,7 @@ knitr::opts_chunk$set(
 </style>
 
 
-Este trabajo consiste en la utilización del chat del grupo de Whatsapp *"Magíster USS"*, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. 
+Este trabajo consiste en la utilización del chat del grupo de Whatsapp *"Magíster USS"*, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. Todos los mensajes fueron enviados en el período correspondido entre el 11 de junio y el 11 de noviembre de 2021.
 
 El objetivo del proyecto es utilizar los datos de mensajes del grupo para predecir quién es autor(a) de un mensaje determinado.
 
@@ -140,17 +140,108 @@ chat_clean <- chat %>%
          date = as_date(str_sub(datetime, end = -7L), format = "%d/%m/%Y"),
          hour = as.numeric(str_sub(datetime, start = -5L, end = -4L)),
          week_day = weekdays(date)) %>% 
-  select(-datetime) %>% 
+  select(-c(datetime, date)) %>% 
   filter(!is.na(message) & str_length(message) > 0)
 ```
 
-El dataset resultante tiene `ncol(chat_clean)` variables y `nrow(chat_clean)` filas o mensajes. 
-
+El dataset resultante tiene `r ncol(chat_clean)` variables y `r nrow(chat_clean)` filas o mensajes. 
 
 ```{r}
-chat_clean %>% 
-  
+head(chat_clean) 
 ```
+
+
+## Partición en train y test
+
+Previo a continuar el análisis exploratorio, se separará el dataset en conjuntos de training y testing, usando muestreo estratificado de acuerdo con el target (sender) y en proporciones 80 y 20%, respectivamente. Debido a que ambos conjuntos tendrán pocos datos, se utilizará la técnica k-fold cross-validation para evaluar con mejor precisión la exactitud de los modelos.
+
+```{r}
+set.seed(123)
+chat_split <- initial_split(chat_clean, prop = .8, strata = sender)
+chat_train <- training(chat_split)
+chat_test <- testing(chat_split)
+
+set.seed(123)
+chat_folds <- vfold_cv(chat_train, v = 10)
+```
+
+## Exploración de mensajes
+
+```{r echo=FALSE}
+library(ggtext)
+theme_set(theme_light(base_family = "Segoe UI", base_size = 16))
+theme_update(
+  plot.background = element_rect(fill = "#fff9fa", color = "transparent"),
+  panel.background = element_rect(fill = "#eeeeee"),
+  text = element_text(color = "#111111"),
+  plot.title = element_markdown(hjust = .5),
+  plot.subtitle = element_markdown(hjust = .5),
+  strip.background = element_rect(fill = "#fff9fa"),
+  strip.text = element_text(color = "#111111", face = "italic", size = "16")
+)
+```
+
+Se continuará con la exploración de la variable objetivo: sender. Un modelo clasificador tenderá a clasificar mejor la clase de la que vea más ejemplos. Por ello, es importante nivelar las clases para mejorar el rendimiento de los modelos subsecuentes.
+
+```{r echo=FALSE}
+sender_counts <- chat_train %>% 
+  count(sender) 
+
+xintercept <- round(mean(sender_counts$n))
+
+sender_counts %>% 
+  mutate(sender = fct_reorder(sender, n)) %>% 
+  ggplot(aes(n, sender)) +
+  geom_col(alpha = .8) +
+  geom_vline(aes(xintercept = mean(n)), lty = 2) +
+  annotate("text", label = paste("mu == ", xintercept),
+           x = xintercept + 20, y = 5, parse = TRUE) +
+  labs(x = "# de mensajes", y = NULL, 
+       title = "¿Quiénes son más activos en WhatsApp?")
+```
+
+En el conjunto de entrenamiento, solamente 4 personas, entre junio y diciembre de 2021, superaron la marca de 100 mensajes enviados. Entre estas 4 personas acumulan 613 mensajes, en otras palabras, enviaron el 59,7% de los mensajes durante el período de estudio.
+
+La media de mensajes enviados es igual a `r xintercept`. Para los efectos del modelo de clasificación, se conservarán las etiquetas de las 6 personas más activas, porque tienen más de 80 mensajes, agrupando los 7 restantes en una sola categoría. 
+
+```{r echo=FALSE}
+sender_counts %>% 
+  arrange(desc(n)) %>% 
+  mutate(cumsum = cumsum(n),
+         pct = cumsum / sum(cumsum))  
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
