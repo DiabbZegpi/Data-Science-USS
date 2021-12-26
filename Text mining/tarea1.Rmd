@@ -85,13 +85,15 @@ library(spacyr)
 library(here)
 library(stringi)
 library(lubridate)
+library(Matrix)
+library(glmnet)
 tidymodels_prefer()
 ```
 
 Después, se importa el archivo con extensión *.txt* con los datos de conversaciones del grupo. Estos datos son una lista, en que cada nueva línea se compone por un mensaje nuevo o por un salto de línea dentro dentro de un mensaje. Cada mensaje tiene el formato *6/11/2021 20:34 - Remitente: mensaje*. Este formato no es ideal para el análisis de datos, por esto, se recorre la lista de mensajes y saltos de líneas para formar un dataset con 3 columnas: `sender`, `datetime` y `message`.
 
 ```{r warning=FALSE}
-text <- read.delim("Text Mining/chat_wsp.txt", 
+text <- read.delim("chat_wsp.txt", 
                    encoding = "UTF-8",
                    quote = "",
                    sep = "\n",
@@ -281,7 +283,7 @@ A continuación, se especifica una secuencia de preprocesamiento, que posteriorm
 4. Filtrar a los 250 tokens más frecuentes.
 5. Calcular tf-idf.
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, eval=FALSE}
 spacy_initialize(model = "es_core_news_sm")
 
 text_recipe <- recipe(sender ~ ., data = chat_train) %>% 
@@ -335,10 +337,10 @@ saveRDS(multinom_train_pred, here("Text Mining", "multinom_train_pred.rds"))
 ```
 
 ```{r echo=FALSE}
-bayes_fit <- readRDS(here("Text Mining", "bayes_fit.rds"))
-multinom_fit <- readRDS(here("Text Mining", "multinom_fit.rds"))
-bayes_train_pred <- readRDS(here("Text Mining", "bayes_train_fit.rds"))
-multinom_train_pred <- readRDS(here("Text Mining", "multinom_train_pred.rds"))
+bayes_fit <- readRDS("bayes_fit.rds")
+multinom_fit <- readRDS("multinom_fit.rds")
+bayes_train_pred <- readRDS( "bayes_train_fit.rds")
+multinom_train_pred <- readRDS("multinom_train_pred.rds")
 ```
 
 
@@ -360,7 +362,7 @@ chat_train %>%
 
 Por otra parte, el modelo multinomial supera ampliamente al bayesiano, pero no supera un desempeño moderado. Al examinar el ajuste de este modelo se puede identificar a las variables con mayor influencia sobre la predicción.
 
-```{r echo=FALSE}
+```{r echo=FALSE, message=TRUE, warning=FALSE, fig.width=11}
 multinom_fit %>% 
   tidy() %>% 
   mutate(term = str_remove(term, "tfidf_message_"),
@@ -391,7 +393,7 @@ saveRDS(multinom_test_pred, here("Text Mining", "multinom_test_pred.rds"))
 ```
 
 ```{r echo=FALSE}
-multinom_test_pred <- readRDS(here("Text Mining", "multinom_test_pred.rds"))
+multinom_test_pred <- readRDS("multinom_test_pred.rds")
 ```
 
 
