@@ -301,7 +301,7 @@ pre code {
     color: #eee;
   }
 </style>
-<p>Este trabajo consiste en la utilización del chat del grupo de Whatsapp <em>“Magíster USS”</em>, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. Todos los mensajes fueron enviados en el período correspondido entre el 11 de junio y el 24 de diciembre de 2021.</p>
+<p>Este trabajo consiste en la utilización del chat del grupo de WhatsApp <em>“Magíster USS”</em>, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. Todos los mensajes fueron enviados en el período correspondido entre el 11 de junio y el 24 de diciembre de 2021.</p>
 <p>El objetivo del proyecto es utilizar los datos de mensajes del grupo para predecir quién es autor(a) de un mensaje determinado.</p>
 <p>Primero que todo, se cargan los paquetes de funciones a utilizar en el análisis.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Dependencias</span></span>
@@ -316,7 +316,7 @@ pre code {
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(Matrix)</span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(glmnet)</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">tidymodels_prefer</span>()</span></code></pre></div>
-<p>Después, se importa el archivo con extensión <em>.txt</em> con los datos de conversaciones del grupo. Estos datos son una lista, en que cada nueva línea se compone por un mensaje nuevo o por un salto de línea dentro dentro de un mensaje. Cada mensaje tiene el formato <em>6/11/2021 20:34 - Remitente: mensaje</em>. Este formato no es ideal para el análisis de datos, por esto, se recorre la lista de mensajes y saltos de líneas para formar un dataset con 3 columnas: <code>sender</code>, <code>datetime</code> y <code>message</code>.</p>
+<p>Después, se importa el archivo con extensión <em>.txt</em> con los datos de conversaciones del grupo. Estos datos son una lista, en que cada nueva línea se compone por un mensaje nuevo o por un salto de línea dentro de un mensaje. Cada mensaje tiene el formato <em>6/11/2021 20:34 - Remitente: mensaje</em>. Este formato no es ideal para el análisis de datos, por esto, se recorre la lista de mensajes y saltos de líneas para formar un dataset con 3 columnas: <code>sender</code>, <code>datetime</code> y <code>message</code>.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>text <span class="ot">&lt;-</span> <span class="fu">read.delim</span>(<span class="st">&quot;chat_wsp.txt&quot;</span>, </span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>                   <span class="at">encoding =</span> <span class="st">&quot;UTF-8&quot;</span>,</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                   <span class="at">quote =</span> <span class="st">&quot;&quot;</span>,</span>
@@ -457,7 +457,7 @@ pre code {
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_lemma</span>(message) <span class="sc">%&gt;%</span> </span>
 <span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_tokenfilter</span>(message, <span class="at">max_tokens =</span> <span class="dv">250</span>) <span class="sc">%&gt;%</span> </span>
 <span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">step_tfidf</span>(message) </span></code></pre></div>
-<p>A continuación, se crean las especificaciones de modelos multiclase: un clasificador bayesiano y un modelmultinomial con regularización L2, de la familia de los modelos lineales generalizados.</p>
+<p>A continuación, se crean las especificaciones de modelos multiclase: un clasificador bayesiano y un modelo multinomial con regularización L2, de la familia de los modelos lineales generalizados.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(discrim)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>bayes_spec <span class="ot">&lt;-</span> <span class="fu">naive_Bayes</span>() <span class="sc">%&gt;%</span> </span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">set_mode</span>(<span class="st">&quot;classification&quot;</span>) <span class="sc">%&gt;%</span> </span>
