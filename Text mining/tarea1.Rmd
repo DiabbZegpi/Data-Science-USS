@@ -214,13 +214,13 @@ chat_train <- chat_train %>%
   mutate(sender = if_else(sender %in% sender_target,
                           sender,
                           "Otro"),
-         sender = factor(sender), skip = FALSE)
+         sender = factor(sender))
 
 chat_test <- chat_test %>% 
   mutate(sender = if_else(sender %in% sender_target,
                           sender,
                           "Otro"),
-         sender = factor(sender), skip = FALSE)
+         sender = factor(sender))
 ```
 
 
@@ -235,7 +235,8 @@ Otro asunto relevante es el comportamiento de los mensajes de acuerdo a la hora 
 
 ```{r echo=FALSE}
 chat_train %>% 
-  mutate(sender = if_else(str_detect(sender, "\\s"),
+  mutate(sender = as.character(sender),
+         sender = if_else(str_detect(sender, "\\s"),
                           str_match(sender, "^(.+)\\s.*")[,2],
                           sender)) %>%
   ggplot(aes(reorder(sender, hour), hour)) +
@@ -247,14 +248,15 @@ chat_train %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-En el gráfico anterior se observan diferencias en los patrones de envío de mensajes de acuerdo a la hora del día: Danilo saluda todos los días entre las 6 y las 7 de la mañana; Álvaro es activo durante todo el día, pero el 50% de su actividad es entre las 10 de la mañana y las 8 de la tarde, muy parecido a Miguel y José Luis; es raro que Martín hable antes de las 11 y después de las 17, pero el tamaño muestral es pequeño; Marcela tiene mucha actividad en torno a las 13 horas, con desviaciones hasta las 23, etc.
+En el gráfico anterior se observan diferencias en los patrones de envío de mensajes de acuerdo a la hora del día: Danilo saluda todos los días entre las 6 y las 7 de la mañana; Álvaro es activo durante todo el día, pero el 50% de su actividad es entre las 10 de la mañana y las 8 de la tarde, muy parecido a Miguel y José Luis; Marcela tiene mucha actividad en torno a las 13 horas, con desviaciones hasta las 23, etc.
 
 Por último, se explora el día de la semana como factor predictivo para el envío de mensajes.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(ggridges)
 chat_train %>% 
-  mutate(sender = if_else(str_detect(sender, "\\s"),
+  mutate(sender = as.character(sender),
+         sender = if_else(str_detect(sender, "\\s"),
                           str_match(sender, "^(.+)\\s.*")[,2],
                           sender)) %>% 
   ggplot(aes(y = reorder(sender, week_day), x = week_day)) +
@@ -341,7 +343,7 @@ chat_train %>%
   accuracy(truth = sender, .pred_class)
 ```
 
-Por otra parte, el modelo multinomial supera ampliamente al bayesiano, pero sigue teniendo un desempeño pobre-moderado. Al examinar el ajuste de este modelo se puede identificar a las variables con mayor influencia sobre la predicción.
+Por otra parte, el modelo multinomial supera ampliamente al bayesiano, pero no supera un desempeño moderado. Al examinar el ajuste de este modelo se puede identificar a las variables con mayor influencia sobre la predicción.
 
 ```{r echo=FALSE}
 multinom_fit %>% 
@@ -354,22 +356,52 @@ multinom_fit %>%
   ungroup() %>% 
   mutate(term = reorder_within(term, estimate, class)) %>% 
   ggplot(aes(estimate, term, fill = estimate > 0)) +
-  geom_col(show.legend = FALSE) +
+  geom_col(show.legend = FALSE, alpha = .8) +
   scale_y_reordered() +
+  scale_fill_manual(values = c("tomato", "deepskyblue3")) +
   labs(x = expression(beta), y = NULL) +
   facet_wrap(~class, scales = "free_y")
 ```
 
 Se observa que los mensajes de José Luis y Miguel están relacionados con código y tareas; Marcela también habla de tareas y de pedir más tiempo para entregar; los mensajes de Danilo son saludos matutinos; mucho se habla de classroom y Álvaro se caracteriza por hablar de sitios web, indicando que facilita los enlaces para entrar en las clases; el grupo "Otro" habla de crimen, debido a que en el período trabajamos con datos de crímenes en Estados Unidos.
 
+## Evaluación en conjunto de testing y prueba
 
+```{r message=FALSE, warning=FALSE}
+multinom_test_pred <- predict(multinom_fit, new_data = chat_test)
+chat_test %>% 
+  bind_cols(multinom_test_pred) %>% 
+  accuracy(truth = sender, .pred_class)
+```
 
+En la prueba, el modelo multinomial tiene mucho peor desempeño que en el entrenamiento, dando una clara señal de sobreajuste.
 
+```{r}
+chat_test %>% 
+  bind_cols(multinom_test_pred) %>% 
+  conf_mat(truth = sender, .pred_class) 
+```
 
+La matriz de confusión demuestra que la clase "Otro" se superpone con todas las demás, porque el modelo no logra discriminar entre nuestros mensajes, dado que hablamos todos sobre tópicos del magíster.
 
+```{r}
+testing_phrases <- tibble(
+  message = c("Buenos días muchachada", "Danilo san", "Podríamos pedir más plazo para entregar la tarea", "Para cuándo quedó el asado?"),
+  hour = c(7, 14, 23, 19),
+  week_day = c(1, 4, 6, 5)
+)
 
+predict(multinom_fit, new_data = testing_phrases)
+```
 
+Pese al bajo accuracy del modelo, la predicción de estas 4 frases es satisfactoria. Por lo menos, se han identificado ciertos estilos y tópicos.
 
+## Conclusiones
+
+Hay dos enfoques para mejorar el modelo de predicción multiclase:
+
+1. **data-centric**: conseguir más datos, mejorar la limpieza e incluir diccionarios, generar texto sintético para aumentar la muestra de las clases menos representadas, incluir emojis en el análisis, considerar la creación de la variable "fin de semana" y su interacción con las palabras tarea, clase y link, reescalar los datos, utilizar una lista de stopwords personalizada.
+2. **algorithm-centric**: utilizar algoritmos basados en ensemble y boosting, cambiar el kernel del estimador bayesiano, utilizar model stacking, cambiar la configuración de regularización con grid search, cambiar el lematizador, evaluar con ROC AUC en lugar de accuracy, crear modelos escalonados para resolver el caso binario, después el de 3 niveles y así sucesivamente.
 
 
 
