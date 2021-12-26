@@ -4,3 +4,5 @@
 .Ruserdata
 *.Rproj
 /Big Data/Data
+derby.log
+logs/

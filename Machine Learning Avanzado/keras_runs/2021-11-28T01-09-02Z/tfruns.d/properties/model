@@ -1,0 +1,32 @@
+Model
+Model: "sequential"
+________________________________________________________________________________
+ Layer (type)                       Output Shape                    Param #     
+================================================================================
+ dense_5 (Dense)                    (None, 10)                      600         
+                                                                                
+ dropout_3 (Dropout)                (None, 10)                      0           
+                                                                                
+ dense_4 (Dense)                    (None, 80)                      880         
+                                                                                
+ dropout_2 (Dropout)                (None, 80)                      0           
+                                                                                
+ dense_3 (Dense)                    (None, 40)                      3240        
+                                                                                
+ dropout_1 (Dropout)                (None, 40)                      0           
+                                                                                
+ dense_2 (Dense)                    (None, 10)                      410         
+                                                                                
+ dropout (Dropout)                  (None, 10)                      0           
+                                                                                
+ dense_1 (Dense)                    (None, 80)                      880         
+                                                                                
+ dense (Dense)                      (None, 2)                       162         
+                                                                                
+================================================================================
+Total params: 6,172
+Trainable params: 6,172
+Non-trainable params: 0
+________________________________________________________________________________
+
+

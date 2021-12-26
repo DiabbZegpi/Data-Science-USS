@@ -1,0 +1,32 @@
+Model
+Model: "sequential"
+________________________________________________________________________________
+ Layer (type)                       Output Shape                    Param #     
+================================================================================
+ dense_5 (Dense)                    (None, 100)                     6000        
+                                                                                
+ dropout_3 (Dropout)                (None, 100)                     0           
+                                                                                
+ dense_4 (Dense)                    (None, 120)                     12120       
+                                                                                
+ dropout_2 (Dropout)                (None, 120)                     0           
+                                                                                
+ dense_3 (Dense)                    (None, 140)                     16940       
+                                                                                
+ dropout_1 (Dropout)                (None, 140)                     0           
+                                                                                
+ dense_2 (Dense)                    (None, 120)                     16920       
+                                                                                
+ dropout (Dropout)                  (None, 120)                     0           
+                                                                                
+ dense_1 (Dense)                    (None, 100)                     12100       
+                                                                                
+ dense (Dense)                      (None, 2)                       202         
+                                                                                
+================================================================================
+Total params: 64,282
+Trainable params: 64,282
+Non-trainable params: 0
+________________________________________________________________________________
+
+
