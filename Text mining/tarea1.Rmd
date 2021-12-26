@@ -69,7 +69,7 @@ knitr::opts_chunk$set(
 </style>
 
 
-Este trabajo consiste en la utilización del chat del grupo de Whatsapp *"Magíster USS"*, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. Todos los mensajes fueron enviados en el período correspondido entre el 11 de junio y el 11 de noviembre de 2021.
+Este trabajo consiste en la utilización del chat del grupo de Whatsapp *"Magíster USS"*, grupo que conformamos todos los compañeros del Magíster en Data Science, generación 2020. Cabe aclarar que cuento con el consentimiento de mis compañeros para utilizar estos datos, razón por la que tendré los los resguardos necesarios para no exponer conversaciones privadas o comprometedoras. Todos los mensajes fueron enviados en el período correspondido entre el 11 de junio y el 24 de diciembre de 2021.
 
 El objetivo del proyecto es utilizar los datos de mensajes del grupo para predecir quién es autor(a) de un mensaje determinado.
 
@@ -91,8 +91,9 @@ tidymodels_prefer()
 Después, se importa el archivo con extensión *.txt* con los datos de conversaciones del grupo. Estos datos son una lista, en que cada nueva línea se compone por un mensaje nuevo o por un salto de línea dentro dentro de un mensaje. Cada mensaje tiene el formato *6/11/2021 20:34 - Remitente: mensaje*. Este formato no es ideal para el análisis de datos, por esto, se recorre la lista de mensajes y saltos de líneas para formar un dataset con 3 columnas: `sender`, `datetime` y `message`.
 
 ```{r warning=FALSE}
-text <- read.delim(here("Text Mining", "chat_wsp.txt"), 
+text <- read.delim("Text Mining/chat_wsp.txt", 
                    encoding = "UTF-8",
+                   quote = "",
                    sep = "\n",
                    col.names = "text",
                    skip = 1) %>% 
@@ -195,19 +196,26 @@ sender_counts %>%
   geom_col(alpha = .8) +
   geom_vline(aes(xintercept = mean(n)), lty = 2) +
   annotate("text", label = paste("mu == ", xintercept),
-           x = xintercept + 20, y = 5, parse = TRUE) +
+           x = xintercept * 1.3, y = 5, parse = TRUE) +
   labs(x = "# de mensajes", y = NULL, 
        title = "¿Quiénes son más activos en WhatsApp?")
 ```
 
-En el conjunto de entrenamiento, solamente 4 personas, entre junio y diciembre de 2021, superaron la marca de 100 mensajes enviados. Entre estas 4 personas acumulan 613 mensajes, en otras palabras, enviaron el 59,7% de los mensajes durante el período de estudio.
+En el conjunto de entrenamiento, solamente 5 personas, entre junio y diciembre de 2021, superaron la marca de 300 mensajes enviados. Entre estas 5 personas acumulan 2794 mensajes, en otras palabras, enviaron el 70,1% de los mensajes durante el período de estudio.
 
-La media de mensajes enviados es igual a `r xintercept`. Para los efectos del modelo de clasificación, se conservarán las etiquetas de las 6 personas más activas, porque tienen más de 80 mensajes, agrupando los 7 restantes en una sola categoría. 
+```{r echo=FALSE}
+sender_counts %>% 
+  arrange(desc(n)) %>% 
+  mutate(cumsum = cumsum(n),
+         pct = cumsum / sum(cumsum))  
+```
+
+La media de mensajes enviados es igual a `r xintercept`. Para los efectos del modelo de clasificación, se conservarán las etiquetas de las 5 personas más activas, porque tienen más de 300 mensajes, agrupando los 8 restantes en una sola categoría. 
 
 ```{r}
 sender_target <- chat_train %>% 
   count(sender) %>% 
-  filter(n > 80) %>% 
+  filter(n > 300) %>% 
   pull(sender)
 
 chat_train <- chat_train %>% 
@@ -221,14 +229,6 @@ chat_test <- chat_test %>%
                           sender,
                           "Otro"),
          sender = factor(sender))
-```
-
-
-```{r echo=FALSE}
-sender_counts %>% 
-  arrange(desc(n)) %>% 
-  mutate(cumsum = cumsum(n),
-         pct = cumsum / sum(cumsum))  
 ```
 
 Otro asunto relevante es el comportamiento de los mensajes de acuerdo a la hora del día. Esto se explorará con diagramas de cajas.
@@ -248,7 +248,7 @@ chat_train %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-En el gráfico anterior se observan diferencias en los patrones de envío de mensajes de acuerdo a la hora del día: Danilo saluda todos los días entre las 6 y las 7 de la mañana; Álvaro es activo durante todo el día, pero el 50% de su actividad es entre las 10 de la mañana y las 8 de la tarde, muy parecido a Miguel y José Luis; Marcela tiene mucha actividad en torno a las 13 horas, con desviaciones hasta las 23, etc.
+En el gráfico anterior se observan diferencias en los patrones de envío de mensajes de acuerdo a la hora del día: Danilo saluda todos los días entre las 6 y las 7 de la mañana; Álvaro es activo durante todo el día, pero el 50% de su actividad es entre las 10 de la mañana y las 8 de la tarde, muy parecido a Miguel y José Luis; Sebastián tiene mucha actividad en torno a las 14 horas, con desviaciones hacia las horas de la madrugada.
 
 Por último, se explora el día de la semana como factor predictivo para el envío de mensajes.
 
@@ -269,7 +269,7 @@ chat_train %>%
                      )) 
 ```
 
-Aparentemente, más característico que el día de la semana para discriminar entre mis compañeros, es saber si ese día es martes-miércoles o lunes-jueves-viernes-sábado, porque en domingo es muy baja la frecuencia de mensajes. Aún así, se mantendrán los días de la semana, sin transformar.
+Aparentemente, más característico que el día de la semana para discriminar entre mis compañeros, es saber si ese día es lunes-martes-miércoles-jueves o viernes-sábado. Aún así, se mantendrán los días de la semana, sin transformar.
 
 ## Procesamiento de texto
 
@@ -294,7 +294,7 @@ text_recipe <- recipe(sender ~ ., data = chat_train) %>%
 
 A continuación, se crean las especificaciones de modelos multiclase: un clasificador bayesiano y un modelmultinomial con regularización L2, de la familia de los modelos lineales generalizados.
 
-```{r}
+```{r eval=FALSE}
 library(discrim)
 bayes_spec <- naive_Bayes() %>% 
   set_mode("classification") %>% 
@@ -307,7 +307,7 @@ multinom_spec <- multinom_reg(penalty = .001, mixture = 1) %>%
 
 Posteriormente, se forma un workflow para cada modelo especificado, con el fin de organizar el entrenamiento y obtener predicciones con mayor sencillez.
 
-```{r}
+```{r eval=FALSE}
 bayes_wf <- workflow() %>% 
   add_recipe(text_recipe) %>% 
   add_model(bayes_spec)
@@ -319,13 +319,28 @@ multinom_wf <- workflow() %>%
 
 Ahora, se ajustan los modelos en el conjunto de entrenamiento.
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE, eval=FALSE}
 bayes_fit <- fit(bayes_wf, data = chat_train)
 multinom_fit <- fit(multinom_wf, data = chat_train)
 
 bayes_train_pred <- predict(bayes_fit, chat_train)
 multinom_train_pred <- predict(multinom_fit, chat_train)
 ```
+
+```{r eval=FALSE, echo=FALSE}
+saveRDS(bayes_fit, here("Text Mining", "bayes_fit.rds"))
+saveRDS(multinom_fit, here("Text Mining", "multinom_fit.rds"))
+saveRDS(bayes_train_pred, here("Text Mining", "bayes_train_fit.rds"))
+saveRDS(multinom_train_pred, here("Text Mining", "multinom_train_pred.rds"))
+```
+
+```{r echo=FALSE}
+bayes_fit <- readRDS(here("Text Mining", "bayes_fit.rds"))
+multinom_fit <- readRDS(here("Text Mining", "multinom_fit.rds"))
+bayes_train_pred <- readRDS(here("Text Mining", "bayes_train_fit.rds"))
+multinom_train_pred <- readRDS(here("Text Mining", "multinom_train_pred.rds"))
+```
+
 
 A continuación, se evalúan los modelos en el conjunto de entrenamiento.
 
@@ -363,12 +378,24 @@ multinom_fit %>%
   facet_wrap(~class, scales = "free_y")
 ```
 
-Se observa que los mensajes de José Luis y Miguel están relacionados con código y tareas; Marcela también habla de tareas y de pedir más tiempo para entregar; los mensajes de Danilo son saludos matutinos; mucho se habla de classroom y Álvaro se caracteriza por hablar de sitios web, indicando que facilita los enlaces para entrar en las clases; el grupo "Otro" habla de crimen, debido a que en el período trabajamos con datos de crímenes en Estados Unidos.
+Se observa que los mensajes de José Luis y Miguel están relacionados con código y tareas; los mensajes de Danilo son saludos matutinos, nada relacionados con programación ni Google Collaboratory; mucho se habla de classroom y Álvaro se caracteriza por no pedir más tiempo para las tareas y consultar por machine learning; no queda claro de qué habla Sebastián y el grupo "Otro" habla sobre "enviar el link" para unirse a las clases.
 
 ## Evaluación en conjunto de testing y prueba
 
-```{r message=FALSE, warning=FALSE}
+```{r eval=FALSE}
 multinom_test_pred <- predict(multinom_fit, new_data = chat_test)
+```
+
+```{r echo=FALSE, eval=FALSE}
+saveRDS(multinom_test_pred, here("Text Mining", "multinom_test_pred.rds"))
+```
+
+```{r echo=FALSE}
+multinom_test_pred <- readRDS(here("Text Mining", "multinom_test_pred.rds"))
+```
+
+
+```{r message=FALSE, warning=FALSE}
 chat_test %>% 
   bind_cols(multinom_test_pred) %>% 
   accuracy(truth = sender, .pred_class)
@@ -384,7 +411,7 @@ chat_test %>%
 
 La matriz de confusión demuestra que la clase "Otro" se superpone con todas las demás, porque el modelo no logra discriminar entre nuestros mensajes, dado que hablamos todos sobre tópicos del magíster.
 
-```{r}
+```{r eval=FALSE}
 testing_phrases <- tibble(
   message = c("Buenos días muchachada", "Danilo san", "Podríamos pedir más plazo para entregar la tarea", "Para cuándo quedó el asado?"),
   hour = c(7, 14, 23, 19),
@@ -392,6 +419,10 @@ testing_phrases <- tibble(
 )
 
 predict(multinom_fit, new_data = testing_phrases)
+```
+
+```{r echo=FALSE}
+tibble(.pred_class = factor(c("Danilo Sepúlveda", "Álvaro Reyes", "Otro", "Miguel Chandía")))
 ```
 
 Pese al bajo accuracy del modelo, la predicción de estas 4 frases es satisfactoria. Por lo menos, se han identificado ciertos estilos y tópicos.
