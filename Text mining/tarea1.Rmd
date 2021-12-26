@@ -156,16 +156,13 @@ head(chat_clean)
 
 ## Partición en train y test
 
-Previo a continuar el análisis exploratorio, se separará el dataset en conjuntos de training y testing, usando muestreo estratificado de acuerdo con el target (sender) y en proporciones 80 y 20%, respectivamente. Debido a que ambos conjuntos tendrán pocos datos, se utilizará la técnica k-fold cross-validation para evaluar con mejor precisión la exactitud de los modelos.
+Previo a continuar el análisis exploratorio, se separará el dataset en conjuntos de training y testing, usando muestreo estratificado de acuerdo con el target (sender) y en proporciones 80 y 20%, respectivamente. Para tener una mejor estimación de la precisión de los modelos, podría usarse k-fold cross-validation, pero será obviado por las condiciones de hardware del equipo en que se trabaja.
 
 ```{r}
 set.seed(123)
 chat_split <- initial_split(chat_clean, prop = .8, strata = sender)
 chat_train <- training(chat_split)
 chat_test <- testing(chat_split)
-
-set.seed(123)
-chat_folds <- vfold_cv(chat_train, v = 10)
 ```
 
 ## Exploración de mensajes
@@ -206,6 +203,26 @@ sender_counts %>%
 En el conjunto de entrenamiento, solamente 4 personas, entre junio y diciembre de 2021, superaron la marca de 100 mensajes enviados. Entre estas 4 personas acumulan 613 mensajes, en otras palabras, enviaron el 59,7% de los mensajes durante el período de estudio.
 
 La media de mensajes enviados es igual a `r xintercept`. Para los efectos del modelo de clasificación, se conservarán las etiquetas de las 6 personas más activas, porque tienen más de 80 mensajes, agrupando los 7 restantes en una sola categoría. 
+
+```{r}
+sender_target <- chat_train %>% 
+  count(sender) %>% 
+  filter(n > 80) %>% 
+  pull(sender)
+
+chat_train <- chat_train %>% 
+  mutate(sender = if_else(sender %in% sender_target,
+                          sender,
+                          "Otro"),
+         sender = factor(sender), skip = FALSE)
+
+chat_test <- chat_test %>% 
+  mutate(sender = if_else(sender %in% sender_target,
+                          sender,
+                          "Otro"),
+         sender = factor(sender), skip = FALSE)
+```
+
 
 ```{r echo=FALSE}
 sender_counts %>% 
@@ -256,27 +273,16 @@ Aparentemente, más característico que el día de la semana para discriminar en
 
 A continuación, se especifica una secuencia de preprocesamiento, que posteriormente puede ser usada por los modelos. Estas etapas de preprocesamiento son:
 
-1. Agrupar a los remitentes menos frecuentes en la categoría "Otro".
-2. Tokenizar los mensajes.
-3. Excluir las stopwords en español de la lista SnowballC.
-4. Lematizar con spaCy.
-5. Filtrar a los 250 tokens más frecuentes.
-6. Calcular tf-idf.
+1. Tokenizar los mensajes.
+2. Excluir las stopwords en español de la lista SnowballC.
+3. Lematizar con spaCy.
+4. Filtrar a los 250 tokens más frecuentes.
+5. Calcular tf-idf.
 
 ```{r message=FALSE, warning=FALSE}
-sender_target <- chat_train %>% 
-  count(sender) %>% 
-  filter(n > 80) %>% 
-  pull(sender)
-
 spacy_initialize(model = "es_core_news_sm")
 
 text_recipe <- recipe(sender ~ ., data = chat_train) %>% 
-  step_mutate(sender = as.character(sender),
-              sender = if_else(sender %in% sender_target,
-                               sender,
-                               "Otro"),
-              sender = factor(sender)) %>%   
   step_tokenize(message, engine = "spacyr") %>% 
   step_stopwords(message, language = "es") %>%
   step_lemma(message) %>% 
@@ -284,7 +290,7 @@ text_recipe <- recipe(sender ~ ., data = chat_train) %>%
   step_tfidf(message) 
 ```
 
-A continuación, se crean las especificaciones de modelos multiclase: un clasificador bayesiano y un modelmultinomial con regularización L2.
+A continuación, se crean las especificaciones de modelos multiclase: un clasificador bayesiano y un modelmultinomial con regularización L2, de la familia de los modelos lineales generalizados.
 
 ```{r}
 library(discrim)
@@ -309,15 +315,43 @@ multinom_wf <- workflow() %>%
   add_model(multinom_spec)
 ```
 
-Ahora, se ajustan los modelos en los conjuntos de validación cruzada.
+Ahora, se ajustan los modelos en el conjunto de entrenamiento.
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+bayes_fit <- fit(bayes_wf, data = chat_train)
+multinom_fit <- fit(multinom_wf, data = chat_train)
 
+bayes_train_pred <- predict(bayes_fit, chat_train)
+multinom_train_pred <- predict(multinom_fit, chat_train)
 ```
 
+A continuación, se evalúan los modelos en el conjunto de entrenamiento.
 
+```{r}
+chat_train %>% 
+  bind_cols(bayes_train_pred) %>% 
+  accuracy(truth = sender, .pred_class)
+```
 
+Por lo visto, el modelo bayesiano tiene un accuracy muy pobre, pero equivalente al accuracy esperado del modelo nulo. Esto indica que el estimador bayesiano solamente predice la clase más frecuente, que es "Otro". Por ende, no se consiguió el aprendizaje.
 
+```{r}
+chat_train %>% 
+  bind_cols(multinom_train_pred) %>% 
+  accuracy(truth = sender, .pred_class)
+```
+
+Por otra parte, el modelo multinomial supera ampliamente al bayesiano, pero sigue teniendo un desempeño pobre-moderado. Al examinar el ajuste de este modelo se puede identificar a las variables con mayor influencia sobre la predicción.
+
+```{r echo=FALSE}
+multinom_fit %>% 
+  tidy() %>% 
+  mutate(term = str_remove(term, "tfidf_message_"),
+         term = str_remove(term, " ")) %>% 
+  filter(str_length(term) > 0, term != "(Intercept)") %>% 
+  group_by(class) %>% 
+  slice_max(abs(estimate), n = 10, with_ties = FALSE)
+```
 
 
 
