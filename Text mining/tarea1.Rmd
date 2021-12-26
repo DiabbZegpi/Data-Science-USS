@@ -350,11 +350,17 @@ multinom_fit %>%
          term = str_remove(term, " ")) %>% 
   filter(str_length(term) > 0, term != "(Intercept)") %>% 
   group_by(class) %>% 
-  slice_max(abs(estimate), n = 10, with_ties = FALSE)
+  slice_max(abs(estimate), n = 10, with_ties = FALSE) %>% 
+  ungroup() %>% 
+  mutate(term = reorder_within(term, estimate, class)) %>% 
+  ggplot(aes(estimate, term, fill = estimate > 0)) +
+  geom_col(show.legend = FALSE) +
+  scale_y_reordered() +
+  labs(x = expression(beta), y = NULL) +
+  facet_wrap(~class, scales = "free_y")
 ```
 
-
-
+Se observa que los mensajes de José Luis y Miguel están relacionados con código y tareas; Marcela también habla de tareas y de pedir más tiempo para entregar; los mensajes de Danilo son saludos matutinos; mucho se habla de classroom y Álvaro se caracteriza por hablar de sitios web, indicando que facilita los enlaces para entrar en las clases; el grupo "Otro" habla de crimen, debido a que en el período trabajamos con datos de crímenes en Estados Unidos.
 
 
 
