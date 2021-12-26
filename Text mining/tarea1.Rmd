@@ -79,6 +79,9 @@ Primero que todo, se cargan los paquetes de funciones a utilizar en el análisis
 # Dependencias
 library(tidyverse)
 library(tidymodels)
+library(textrecipes)
+library(tidytext)
+library(spacyr)
 library(here)
 library(stringi)
 library(lubridate)
@@ -139,12 +142,12 @@ chat_clean <- chat %>%
          message = str_replace_all(message, "\\s+", " "),
          date = as_date(str_sub(datetime, end = -7L), format = "%d/%m/%Y"),
          hour = as.numeric(str_sub(datetime, start = -5L, end = -4L)),
-         week_day = weekdays(date)) %>% 
+         week_day = wday(date, week_start = 1)) %>% 
   select(-c(datetime, date)) %>% 
   filter(!is.na(message) & str_length(message) > 0)
 ```
 
-El dataset resultante tiene `r ncol(chat_clean)` variables y `r nrow(chat_clean)` filas o mensajes. 
+El dataset resultante tiene `r ncol(chat_clean)` variables y `r nrow(chat_clean)` filas o mensajes, sin datos faltantes. 
 
 ```{r}
 head(chat_clean) 
@@ -229,13 +232,88 @@ chat_train %>%
 
 En el gráfico anterior se observan diferencias en los patrones de envío de mensajes de acuerdo a la hora del día: Danilo saluda todos los días entre las 6 y las 7 de la mañana; Álvaro es activo durante todo el día, pero el 50% de su actividad es entre las 10 de la mañana y las 8 de la tarde, muy parecido a Miguel y José Luis; es raro que Martín hable antes de las 11 y después de las 17, pero el tamaño muestral es pequeño; Marcela tiene mucha actividad en torno a las 13 horas, con desviaciones hasta las 23, etc.
 
+Por último, se explora el día de la semana como factor predictivo para el envío de mensajes.
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(ggridges)
+chat_train %>% 
+  mutate(sender = if_else(str_detect(sender, "\\s"),
+                          str_match(sender, "^(.+)\\s.*")[,2],
+                          sender)) %>% 
+  ggplot(aes(y = reorder(sender, week_day), x = week_day)) +
+  stat_binline(bins = 7, binwidth = .5, scale = 1.5) +
+  labs(x = NULL, y = NULL,
+       title = "Mensajes por día de la semana") +
+  scale_x_continuous(breaks = 1:7,
+                     labels = c(
+                       "lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"
+                     )) 
+```
 
+Aparentemente, más característico que el día de la semana para discriminar entre mis compañeros, es saber si ese día es martes-miércoles o lunes-jueves-viernes-sábado, porque en domingo es muy baja la frecuencia de mensajes. Aún así, se mantendrán los días de la semana, sin transformar.
 
+## Procesamiento de texto
 
+A continuación, se especifica una secuencia de preprocesamiento, que posteriormente puede ser usada por los modelos. Estas etapas de preprocesamiento son:
 
+1. Agrupar a los remitentes menos frecuentes en la categoría "Otro".
+2. Tokenizar los mensajes.
+3. Excluir las stopwords en español de la lista SnowballC.
+4. Lematizar con spaCy.
+5. Filtrar a los 250 tokens más frecuentes.
+6. Calcular tf-idf.
 
+```{r message=FALSE, warning=FALSE}
+sender_target <- chat_train %>% 
+  count(sender) %>% 
+  filter(n > 80) %>% 
+  pull(sender)
 
+spacy_initialize(model = "es_core_news_sm")
+
+text_recipe <- recipe(sender ~ ., data = chat_train) %>% 
+  step_mutate(sender = as.character(sender),
+              sender = if_else(sender %in% sender_target,
+                               sender,
+                               "Otro"),
+              sender = factor(sender)) %>%   
+  step_tokenize(message, engine = "spacyr") %>% 
+  step_stopwords(message, language = "es") %>%
+  step_lemma(message) %>% 
+  step_tokenfilter(message, max_tokens = 250) %>% 
+  step_tfidf(message) 
+```
+
+A continuación, se crean las especificaciones de modelos multiclase: un clasificador bayesiano y un modelmultinomial con regularización L2.
+
+```{r}
+library(discrim)
+bayes_spec <- naive_Bayes() %>% 
+  set_mode("classification") %>% 
+  set_engine("naivebayes")
+
+multinom_spec <- multinom_reg(penalty = .001, mixture = 1) %>%
+  set_mode("classification") %>% 
+  set_engine("glmnet")
+```
+
+Posteriormente, se forma un workflow para cada modelo especificado, con el fin de organizar el entrenamiento y obtener predicciones con mayor sencillez.
+
+```{r}
+bayes_wf <- workflow() %>% 
+  add_recipe(text_recipe) %>% 
+  add_model(bayes_spec)
+
+multinom_wf <- workflow() %>% 
+  add_recipe(text_recipe) %>% 
+  add_model(multinom_spec)
+```
+
+Ahora, se ajustan los modelos en los conjuntos de validación cruzada.
+
+```{r}
+
+```
 
 
 
