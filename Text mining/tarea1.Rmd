@@ -273,6 +273,29 @@ chat_train %>%
 
 Aparentemente, más característico que el día de la semana para discriminar entre mis compañeros, es saber si ese día es lunes-martes-miércoles-jueves o viernes-sábado. Aún así, se mantendrán los días de la semana, sin transformar.
 
+Finalmente, se examinan las palabras más comunes con una nube de palabras.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(ggwordcloud)
+wc_df <- chat_train %>% 
+  unnest_tokens(word, message) %>% 
+  count(sender, word) %>% 
+  anti_join(get_stopwords(language = "es"), by = c("word")) %>% 
+  group_by(sender) %>% 
+  slice_max(n, n = 50) %>% 
+  ungroup()
+
+ggplot(wc_df, aes(label = word, size = n, color = sender)) +
+  geom_text_wordcloud(seed = 123) +
+  scale_size(range = c(2, 10)) +
+  facet_wrap(~sender) +
+  theme(legend.position = "none",
+        panel.grid = element_blank(),
+        axis.line = element_blank(),
+        axis.text = element_blank()) 
+```
+
+
 ## Procesamiento de texto
 
 A continuación, se especifica una secuencia de preprocesamiento, que posteriormente puede ser usada por los modelos. Estas etapas de preprocesamiento son:
