@@ -460,7 +460,7 @@ Hay dos enfoques para mejorar el modelo de predicción multiclase:
 2. **algorithm-centric**: utilizar algoritmos basados en ensemble y boosting, cambiar el kernel del estimador bayesiano, utilizar model stacking, cambiar la configuración de regularización con grid search, cambiar el lematizador, evaluar con ROC AUC en lugar de accuracy, crear modelos escalonados para resolver el caso binario, después el de 3 niveles y así sucesivamente.
 
 
-## Implementación de algoritmos no supervisados
+# Implementación de algoritmos no supervisados
 
 A priori, la implementación del algoritmo LDA no debería ser prometedora, debido a que cada mensaje (*documento*) contiene pocas palabras. Esto significa que la frecuencia de palabras por documento no será alta y la *sparse matrix* será extremadamente *sparse*. Con el objeto de sortear este obstáculo, se filtran los mensajes con menos de 5 palabras.
 
@@ -474,8 +474,8 @@ word_counts <- chat_clean %>%
   mutate(msg_id = row_number()) %>%
   filter(str_count(message, "\\S+") >= 5) %>% # Filtrar mensajes con menos de 5 palabras
   unnest_tokens(word, message, token = "words") %>% 
+  filter(!word %in% stopwords(kind = 'es')) %>%
   mutate(stem = wordStem(word, language = "spanish")) %>% 
-  filter(!stem %in% stopwords(kind = 'es')) %>% 
   count(msg_id, stem)
 
 # Construir Document-Term-Matrix
@@ -517,14 +517,14 @@ perplexities <- map_dbl(lda_models, perplexity) %>%
   transmute(ntopics = ntopics + 1, perplexity = perplexity)
 ```
 
-El perplexity del modelo es una función monótona decreciente del número de tópicos, y el método del codo es una heurística común usada para determinar la cantidad óptima de estos. De acuerdo con el método del codo, el número óptimo de tópicos es 4, porque con más tópicos la métrica de evaluación decrece linealmente.
+El perplexity del modelo es una función monótona decreciente del número de tópicos, y el método del codo es una heurística común usada para determinar la cantidad óptima de estos. De acuerdo con el método del codo, el número óptimo de tópicos es 3, porque con más tópicos la métrica de evaluación decrece linealmente.
 
 ```{r echo=FALSE}
 perplexities %>% 
   ggplot(aes(ntopics, perplexity)) +
   geom_point() +
   geom_line() +
-  geom_vline(lty = 2, xintercept = 4) +
+  geom_vline(lty = 2, xintercept = 3) +
   labs(x = "# de tópicos", y = "Perplexity",
        title = "Modelo LDA") +
   theme(panel.grid.minor = element_blank())
@@ -533,7 +533,7 @@ perplexities %>%
 Ahora, tras seleccionar el mejor modelo, se extraen las matrices de distribución de probabilidad de término por tópico (beta) y distribución de probabilidad de tópico por documento (gamma).
 
 ```{r}
-best_model <- lda_models[[3]] # modelo de 4 tópicos
+best_model <- lda_models[[2]] # modelo de 3 tópicos
 beta_matrix <- tidy(best_model, matrix = "beta")
 gamma_matrix <- tidy(best_model, matrix = "gamma")
 
@@ -543,7 +543,7 @@ top_terms <- beta_matrix %>%
   ungroup()
 ```
 
-En el gráfico siguiente se aprecia que los stem del tópico 1 se relacionan con classroom y proyectos (asignaturas proyecto de grado I, evaluación de proyectos y gestión de proyectos); el tópico 2 trata de saludos matutinos tales como "buenos días a todos"; el tópico 3 puede ser misceláneo, porque lo gobiernan adverbios de cantidad y preposiciones; el tópico 4 trata de tareas, emails y consultas a los/as profesores/as.
+En el gráfico siguiente se aprecia que los stem del tópico 1 se relacionan con classroom y los enlaces de conexión a las clases; el tópico 2 trata de saludos matutinos tales como "buenos días a todos"; el tópico 3 trata de tareas y consultas a los/as profesores/as.
 
 ```{r echo=FALSE, fig.width=11}
 top_terms %>%
@@ -553,15 +553,44 @@ top_terms %>%
   facet_wrap(~ topic, scales = "free") +
   scale_y_reordered() +
   scale_x_continuous(labels = scales::percent_format()) +
-  labs(title = "Distribución de Probabilidad<br>Top 10 stem por tópico",
+  labs(title = "Distribución de Probabilidad<br>Top 10 stems por tópico",
        x = expression(beta), y = NULL)
 ```
 
+## Análisis con redes 
 
+Como elección personal, se empleará el coeficiente $\phi$ para estimar la correlación entre las palabras más comunes. El resultado esperado será encontrar nodos conectados a muchas palabras, formando conglomerados semánticamente identificables.
 
+```{r}
+library(widyr)
 
+stems <- chat_clean %>% 
+  mutate(msg_id = row_number()) %>%
+  unnest_tokens(word, message, token = "words") %>% 
+  mutate(stem = wordStem(word, language = "spanish")) 
 
+chat_cors <- stems %>% 
+  group_by(stem) %>% 
+  filter(n() > 20) %>% # filtrar palabras menos comunes
+  pairwise_cor(stem, msg_id)
+```
 
+En la figura siguiente se observa un cluster evidente que dice de los enlaces de conexión para las clases. También existe una fuerte conexión entre los saludos de buenos días y las bromas de "pastor y diezmos". Por el sector izquierdo, se notan las correlaciones entre asignaturas de proyectos y preguntas para las/os profesores. Por último, nótese la alta correlación entre `Python` y `R`, lo que denota las preferencias de la universidad sobre lenguajes de programación a impartir en el postgrado.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(igraph)
+library(ggraph)
+set.seed(123)
+
+chat_cors %>% 
+  filter(correlation > .15) %>% 
+  graph_from_data_frame() %>% 
+  ggraph(layout = "fr") +
+  geom_edge_link(aes(edge_alpha = correlation), show.legend = FALSE) +
+  geom_node_point(size = 4, color = "midnightblue", alpha = .5) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  theme()
+```
 
 
 
