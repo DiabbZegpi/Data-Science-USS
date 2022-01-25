@@ -93,7 +93,7 @@ tidymodels_prefer()
 Después, se importa el archivo con extensión *.txt* con los datos de conversaciones del grupo. Estos datos son una lista, en que cada nueva línea se compone por un mensaje nuevo o por un salto de línea dentro de un mensaje. Cada mensaje tiene el formato *6/11/2021 20:34 - Remitente: mensaje*. Este formato no es ideal para el análisis de datos, por esto, se recorre la lista de mensajes y saltos de líneas para formar un dataset con 3 columnas: `sender`, `datetime` y `message`.
 
 ```{r warning=FALSE}
-text <- read.delim("Text Mining/chat_wsp.txt", 
+text <- read.delim("chat_wsp.txt", 
                    encoding = "UTF-8",
                    quote = "",
                    sep = "\n",
@@ -469,7 +469,7 @@ library(tm, include.only = "stopwords") # Cargar stopwords
 library(topicmodels) # Algoritmo LDA
 library(SnowballC) # Stemming
 
-# Construcción de dataset sin
+# Preprocessing
 word_counts <- chat_clean %>% 
   mutate(msg_id = row_number()) %>%
   filter(str_count(message, "\\S+") >= 5) %>% # Filtrar mensajes con menos de 5 palabras
@@ -508,7 +508,7 @@ saveRDS(lda_models, file = here("Text Mining", "lda_models.rds"))
 ```
 
 ```{r echo=FALSE, warning=FALSE, message=FALSE}
-lda_models <- readRDS(file = here("Text Mining", "lda_models.rds"))
+lda_models <- readRDS(file = "lda_models.rds")
 ```
 
 ```{r}
@@ -543,7 +543,7 @@ top_terms <- beta_matrix %>%
   ungroup()
 ```
 
-En el gráfico siguiente se aprecia que los stem del tópico 1 se relacionan con classroom y los enlaces de conexión a las clases; el tópico 2 trata de saludos matutinos tales como "buenos días a todos"; el tópico 3 trata de tareas y consultas a los/as profesores/as.
+En el gráfico siguiente se aprecia que los stems del tópico 1 se relacionan con classroom y los enlaces de conexión a las clases; el tópico 2 trata de saludos matutinos tales como "buenos días a todos"; el tópico 3 trata de tareas y consultas a los/as profesores/as.
 
 ```{r echo=FALSE, fig.width=11}
 top_terms %>%
