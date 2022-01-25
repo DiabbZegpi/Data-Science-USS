@@ -495,7 +495,7 @@ ncores <- detectCores() - 1
 cl <- makePSOCKcluster(ncores)
 registerDoParallel(cl)
 
-
+# Usar operador %dopar% de computación paralela
 lda_models <- foreach(ntopics = 2:20) %dopar% {
  topicmodels::LDA(message_dtm, k = ntopics, control = list(seed = 123)) 
 }
@@ -530,8 +530,32 @@ perplexities %>%
   theme(panel.grid.minor = element_blank())
 ```
 
+Ahora, tras seleccionar el mejor modelo, se extraen las matrices de distribución de probabilidad de término por tópico (beta) y distribución de probabilidad de tópico por documento (gamma).
 
+```{r}
+best_model <- lda_models[[3]] # modelo de 4 tópicos
+beta_matrix <- tidy(best_model, matrix = "beta")
+gamma_matrix <- tidy(best_model, matrix = "gamma")
 
+top_terms <- beta_matrix %>% 
+  group_by(topic) %>% 
+  slice_max(beta, n = 10, with_ties = FALSE) %>% 
+  ungroup()
+```
+
+En el gráfico siguiente se aprecia que los stem del tópico 1 se relacionan con classroom y proyectos (asignaturas proyecto de grado I, evaluación de proyectos y gestión de proyectos); el tópico 2 trata de saludos matutinos tales como "buenos días a todos"; el tópico 3 puede ser misceláneo, porque lo gobiernan adverbios de cantidad y preposiciones; el tópico 4 trata de tareas, emails y consultas a los/as profesores/as.
+
+```{r echo=FALSE, fig.width=11}
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE, alpha = .8) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered() +
+  scale_x_continuous(labels = scales::percent_format()) +
+  labs(title = "Distribución de Probabilidad<br>Top 10 stem por tópico",
+       x = expression(beta), y = NULL)
+```
 
 
 
