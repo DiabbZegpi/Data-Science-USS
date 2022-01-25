@@ -1,5 +1,5 @@
 ---
-title: "Tarea 1"
+title: "Tarea 2"
 author: "Diabb Zegpi"
 date: "25-12-2021"
 output: 
@@ -405,7 +405,7 @@ multinom_fit %>%
 
 Se observa que los mensajes de José Luis y Miguel están relacionados con código y tareas; los mensajes de Danilo son saludos matutinos, nada relacionados con programación ni Google Collaboratory; mucho se habla de classroom y Álvaro se caracteriza por no pedir más tiempo para las tareas y consultar por machine learning; no queda claro de qué habla Sebastián y el grupo "Otro" habla sobre "enviar el link" para unirse a las clases.
 
-## Evaluación en conjunto de testing y prueba
+## Evaluación en conjunto de prueba
 
 ```{r eval=FALSE}
 multinom_test_pred <- predict(multinom_fit, new_data = chat_test)
@@ -460,6 +460,23 @@ Hay dos enfoques para mejorar el modelo de predicción multiclase:
 2. **algorithm-centric**: utilizar algoritmos basados en ensemble y boosting, cambiar el kernel del estimador bayesiano, utilizar model stacking, cambiar la configuración de regularización con grid search, cambiar el lematizador, evaluar con ROC AUC en lugar de accuracy, crear modelos escalonados para resolver el caso binario, después el de 3 niveles y así sucesivamente.
 
 
+## Implementación de algoritmos no supervisados
+
+```{r warning=FALSE, message=FALSE}
+library(tm) # Paquete de text mining con stopwords
+library(topicmodels)
+# Construcción de dataset sin
+word_counts <- chat_clean %>% 
+  mutate(msg_id = row_number()) %>%
+  filter(str_count(message, "\\S+") > 5) %>% # Filtrar mensajes con menos de 5 palabras
+  unnest_tokens(word, message, token = "words") %>% 
+  filter(!word %in% stopwords(kind = 'es')) %>% 
+  count(msg_id, word)
+
+# Construir Document-Term-Matrix
+message_dtm <- word_counts %>%  
+  cast_dtm(msg_id, word, n)
+```
 
 
 
